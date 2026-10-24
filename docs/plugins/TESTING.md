@@ -397,3 +397,11 @@ it merges into `master`, re-runs come from pushes to this branch:
 ```bash
 gh run watch <run-id>
 ```
+
+A sixth run on the documentation commit failed at `Plugin unit tests` with
+`Could not resolve org.jetbrains.kotlin:kotlin-stdlib:2.2.0 … Received status code 403
+from server: Forbidden` for every artifact on Maven Central. Maven Central was
+answering 200s from other hosts at the same moment, and the same commit built
+successfully when the failed job was re-run, so it was a transient repository-side
+rate limit rather than a repository defect. Treat a wall of 403s at dependency
+resolution as infrastructure and re-run the job instead of editing the build.
