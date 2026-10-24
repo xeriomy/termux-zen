@@ -192,8 +192,8 @@ Any future change must keep these true:
 - **The plugin manager is a single programmatic screen.** It is functional and
   confirmation-gated, but not a full accessibility-reviewed settings experience.
 - **The release APK build is blocked on this aarch64 host** by Google's x86_64-only
-  AAPT2/NDK. An x86_64 CI workflow now exists, but it has not run; this is a tooling
-  limitation, not a security control. See `TESTING.md` §9.
+  AAPT2/NDK. An x86_64 CI workflow builds and tests it and its latest run is green;
+  this is a tooling limitation, not a security control. See `TESTING.md` §9.
 
 ### 6.1 Catalog expiry and revocation
 

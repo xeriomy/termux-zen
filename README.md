@@ -70,7 +70,8 @@ model, test results, current limitations, and build prerequisites are in
 
 Plugin API v1 is an MVP. The aarch64 development host cannot build the APK because
 Google's AAPT2/NDK toolchains are x86_64-only. An x86_64 CI workflow now builds and
-tests it, but that workflow has not run yet; device verification is still required. See
+tests it and its latest run is green, including an emulator smoke job; device
+verification of the manual steps is still required. See
 [`docs/plugins/TESTING.md`](docs/plugins/TESTING.md).
 ##
 

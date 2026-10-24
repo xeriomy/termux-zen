@@ -1,11 +1,10 @@
 # Plugin System — Testing and Build Notes
 
-Status: local test evidence from 2026-10-22; x86_64 CI verification was added on
-2026-10-24 but has not been executed because all changes are uncommitted.
-Audience: anyone reproducing the work or reviewing its claims.
+Status: local test evidence from 2026-10-22; x86_64 CI verification executed on
+2026-10-24 and green. Audience: anyone reproducing the work or reviewing its claims.
 
-Sections 2–8 are results from actual local runs. Section 9 describes the CI workflow
-that must produce the missing APK, lint, and runtime evidence; it is **not** a result.
+Sections 2–8 are results from actual local runs. Section 9 records the executed CI
+runs, including what failed and why.
 
 ## 1. Development environment
 
@@ -314,7 +313,9 @@ Artifacts (retained 14 days):
 
 Runner: `ubuntu-24.04` with the GitHub-hosted KVM-enabled Android emulator, API 34,
 x86_64 AOSP image, Pixel 2 profile. It downloads `termux-debug-apk` and runs
-`scripts/emulator-smoke.sh`.
+`scripts/emulator-smoke.sh`. A step runs `sudo chmod 0666 /dev/kvm` first: the runner
+exposes `/dev/kvm` but not to the runner user, and without it the emulator falls back
+to `-accel off` and the smoke script is roughly ten times slower than its budget.
 
 The job runs whenever assembly and APK verification both succeeded, even if a later
 step such as lint failed; the run uses
@@ -333,29 +334,66 @@ It deliberately does **not** claim coverage of theme application/fallback, extra
 application/fallback, preset use, uninstall safety, invalid-state recovery, or
 accessibility. Those remain steps 3–9 and 11 of §6.2 on a physical device.
 
-### 9.3 Current status
+### 9.3 Executed runs
 
-**Not executed.** No workflow run, APK, lint result, or emulator result exists yet.
-This environment is aarch64, the worktree has no upstream branch, and the changes are
-intentionally uncommitted. Do not cite §9 as passing evidence.
+The workflow ran five times on branch `plugins-system`. The first four failed and each
+failure was diagnosed and fixed; the fifth is green end to end.
 
-For the first run, commit the work and push the branch under the name hardcoded in
-the trigger:
+| Run | Commit | Build job | Emulator job |
+| --- | --- | --- | --- |
+| [40100235285](https://github.com/xeriomy/termux-zen/actions/runs/40100235285) | `78a65303` | tests + APK green, **lint failed** | failed (bootstrap timeout) |
+| [40102735456](https://github.com/xeriomy/termux-zen/actions/runs/40102735456) | `7dbcb95a` | green | failed (bootstrap race) |
+| [40112228690](https://github.com/xeriomy/termux-zen/actions/runs/40112228690) | `6e5f523a` | green | failed (sleeping screen + ANR) |
+| [40119142560](https://github.com/xeriomy/termux-zen/actions/runs/40119142560) | `1d6042b7` | green | failed (off-by-one in the script) |
+| [40122465847](https://github.com/xeriomy/termux-zen/actions/runs/40122465847) | `edae069a` | **green** | **green, ~1 minute** |
+
+Final run, all steps successful. Measured from the run's own artifacts:
+
+| Check | Result |
+| --- | --- |
+| Plugin unit tests (`--tests 'com.termux.app.plugins.*'`) | 46 tests, 0 failures, 0 skipped |
+| Full `:app` suite | 48 tests, 0 failures, 0 skipped |
+| Baseline gate | 48 executed ≥ `--min-tests 48`, 0 baseline failures |
+| `:terminal-emulator` unit tests | 145 tests, 0 failures |
+| `lintDebug` | 31 warnings, 0 errors |
+| Debug APK | 5 ABIs + universal assembled and checksummed |
+
+The emulator job PASSED install → first launch → bootstrap → terminal command →
+Settings → Plugins → bundled install → restart persistence, in about one minute.
+
+Two of the four failures were environment causes worth recording:
+
+1. **No usable KVM on the runner (runs 1–3).** `ubuntu-24.04` exposes `/dev/kvm` but
+   not to the runner user, so `android-emulator-runner` chose `-accel off` and the
+   emulator ran in pure software emulation. Every symptom followed from that: 7-minute
+   boot, 6–9 minute bootstrap extraction, constant system ANRs, and a screen that
+   slept mid-check. The workflow now runs `sudo chmod 0666 /dev/kvm` before the
+   emulator starts, which is exactly the check the action makes
+   (`accessSync('/dev/kvm', R_OK | W_OK)`). Boot then took 38 seconds and the whole
+   smoke script ~1 minute.
+2. **The APK counts occurrences, not lines (run 4).** With KVM enabled the smoke
+   script got all the way to the bundled-sample assertion and failed with
+   `expected three disabled samples, found 2`. The app was correct — the UI dump shows
+   all three rows with `Disabled`. The bug was in the script: it piped `grep -o`
+   output through a variable and then through `wc -l`. Command substitution strips the
+   trailing newline, so three matches counted as two. `wc -l` now reads `grep`'s
+   output directly.
+
+The `MissingSuperCall` lint error in run 1 was pre-existing (upstream
+`TermuxActivity.onBackPressed`) and is suppressed narrowly on that one method with a
+comment; it is not a plugin change and no test expectation was altered. The
+`FileReceiverActivityTest` Robolectric failure in §8 remains a known baseline item and
+is allowed by the gate's `--allow-baseline` flag.
+
+APK SHA-256 values are in the `termux-debug-apk` artifact (`sha256sums.txt`); JUnit XML
+and the lint report are in `plugin-verification-reports`. The x86_64 APK the emulator
+job installed in the final run is
+`6bd5a42ae26ad1664c44e5c386423e12a23d43f85da65c74444b00d82d57c0af`.
+
+Manual runs require the workflow to be on the default branch first, because
+`workflow_dispatch` is only listed once a workflow exists on the default branch. Until
+it merges into `master`, re-runs come from pushes to this branch:
 
 ```bash
-git push -u origin plugins-system
+gh run watch <run-id>
 ```
-
-Then open the "Plugin verification (x86_64)" run for that push. Opening a pull request
-from `plugins-system` to `master` is the alternative and triggers the same workflow.
-`workflow_dispatch` is not listed until the workflow reaches the default branch; after
-it is merged, manual runs can use:
-
-```bash
-gh workflow run plugin-verification.yml --ref plugins-system
-gh run watch
-```
-
-Record the run URL, APK SHA-256, JUnit counts, lint result, and emulator artifact. If
-the emulator job fails for infrastructure reasons, keep that failure; it is not a
-passing runtime check.

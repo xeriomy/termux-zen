@@ -5,9 +5,10 @@ This directory documents the plugin system added to this Termux app fork. Plugin
 preset. The app never downloads or runs Java/Kotlin bytecode, JARs, DEX, native code,
 or scripts.
 
-Status: API v1 MVP implemented in `com.termux.app.plugins`. An x86_64 CI workflow and
-an emulator smoke job were added, but have not run yet; the release APK and device
-verification remain pending.
+Status: API v1 MVP implemented in `com.termux.app.plugins`. The x86_64 CI workflow and
+the emulator smoke job have run and the latest run is green (run history in
+`TESTING.md` §9.3); device verification of the manual steps in `TESTING.md` §6.2
+remains pending.
 
 ## Documents
 

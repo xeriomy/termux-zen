@@ -19,7 +19,8 @@ Status: after the v1 MVP and Phase 6 verification scaffolding. Audience: maintai
 - JUnit tests (46) for the core; exact results in `TESTING.md`.
 - An x86_64 CI workflow for plugin tests, the full app suite, terminal-emulator tests,
   lint, and a debug APK, plus a baseline-aware JUnit gate and an emulator smoke job.
-  The workflow has not run yet; see `TESTING.md` §9.
+  It has run five times and the latest run is green; the run history and the four
+  failures it took to get there are in `TESTING.md` §9.3.
 - Architecture, format, threat model, audit, and testing documents.
 
 ## 2. Deliberate v1 limitations
