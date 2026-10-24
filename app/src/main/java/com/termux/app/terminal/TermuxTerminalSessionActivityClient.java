@@ -362,6 +362,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     }
 
     public void addNewSession(boolean isFailSafe, String sessionName) {
+        addNewSession(isFailSafe, sessionName, null);
+    }
+
+    /**
+     * Adds a session. {@code workingDirectoryOverride} is used by declarative session presets and
+     * is still checked here; it must be an existing directory.
+     */
+    public void addNewSession(boolean isFailSafe, String sessionName, String workingDirectoryOverride) {
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
@@ -372,7 +380,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             TerminalSession currentSession = mActivity.getCurrentSession();
 
             String workingDirectory;
-            if (currentSession == null) {
+            if (workingDirectoryOverride != null) {
+                if (!new File(workingDirectoryOverride).isDirectory()) {
+                    mActivity.showToast(mActivity.getString(
+                        R.string.plugins_preset_unavailable), true);
+                    return;
+                }
+                workingDirectory = workingDirectoryOverride;
+            } else if (currentSession == null) {
                 workingDirectory = mActivity.getProperties().getDefaultWorkingDirectory();
             } else {
                 workingDirectory = currentSession.getCwd();
@@ -500,6 +515,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             if (colorsFile.isFile()) {
                 try (InputStream in = new FileInputStream(colorsFile)) {
                     props.load(in);
+                }
+            } else {
+                // A user colors file always wins. A plugin is only a fallback.
+                com.termux.app.plugins.PluginRuntime runtime =
+                    com.termux.app.plugins.PluginManager.getRuntime();
+                if (runtime != null) {
+                    Properties pluginColors = runtime.getThemeProperties();
+                    if (pluginColors != null) props.putAll(pluginColors);
                 }
             }
 

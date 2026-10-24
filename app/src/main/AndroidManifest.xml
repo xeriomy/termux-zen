@@ -103,6 +103,13 @@
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
 
         <activity
+            android:name=".app.plugins.PluginManagerActivity"
+            android:exported="false"
+            android:label="@string/title_activity_plugin_manager"
+            android:parentActivityName=".app.activities.SettingsActivity"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+
+        <activity
             android:name=".shared.activities.ReportActivity"
             android:theme="@style/Theme.MarkdownViewActivity.DayNight"
             android:documentLaunchMode="intoExisting" />

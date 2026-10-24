@@ -28,6 +28,8 @@ import android.widget.Toast;
 
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
+import com.termux.app.plugins.PluginManager;
+import com.termux.app.plugins.PluginRuntime;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
@@ -66,6 +68,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * A terminal emulator activity.
@@ -132,6 +135,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * The client for the {@link #mExtraKeysView}.
      */
     TermuxTerminalExtraKeys mTermuxTerminalExtraKeys;
+    private int mLastPluginGeneration = -1;
 
     /**
      * The termux sessions list controller.
@@ -188,6 +192,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private static final int CONTEXT_MENU_HELP_ID = 7;
     private static final int CONTEXT_MENU_SETTINGS_ID = 8;
     private static final int CONTEXT_MENU_REPORT_ID = 9;
+    private static final int CONTEXT_MENU_SESSION_PRESET_BASE = 100;
 
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
@@ -318,6 +323,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Check if a crash happened on last run of the app or if a plugin crashed and show a
         // notification with the crash details if it did
         TermuxCrashUtils.notifyAppCrashFromCrashLogFile(this, LOG_TAG);
+
+        // The plugin manager is another activity, so the styling broadcast sent while it was on
+        // top is not delivered here. Re-apply active plugin state when enabled/disabled meanwhile.
+        PluginRuntime pluginRuntime = PluginManager.getRuntime();
+        int pluginGeneration = pluginRuntime == null ? 0 : pluginRuntime.getGeneration();
+        if (mLastPluginGeneration != -1 && pluginGeneration != mLastPluginGeneration)
+            reloadActivityStyling(false);
+        mLastPluginGeneration = pluginGeneration;
 
         mIsOnResumeAfterOnCreate = false;
     }
@@ -648,6 +661,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         menu.add(Menu.NONE, CONTEXT_MENU_HELP_ID, Menu.NONE, R.string.action_open_help);
         menu.add(Menu.NONE, CONTEXT_MENU_SETTINGS_ID, Menu.NONE, R.string.action_open_settings);
         menu.add(Menu.NONE, CONTEXT_MENU_REPORT_ID, Menu.NONE, R.string.action_report_issue);
+
+        List<PluginRuntime.SessionPreset> presets = getSessionPresets();
+        for (int i = 0; i < presets.size(); i++) {
+            menu.add(Menu.NONE, CONTEXT_MENU_SESSION_PRESET_BASE + i, Menu.NONE,
+                getString(R.string.action_new_session_preset, presets.get(i).name));
+        }
     }
 
     /** Hook system menu to show context menu instead. */
@@ -660,6 +679,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         TerminalSession session = getCurrentSession();
+
+        List<PluginRuntime.SessionPreset> presets = getSessionPresets();
+        int presetIndex = item.getItemId() - CONTEXT_MENU_SESSION_PRESET_BASE;
+        if (presetIndex >= 0 && presetIndex < presets.size()) {
+            PluginRuntime.SessionPreset preset = presets.get(presetIndex);
+            mTermuxTerminalSessionActivityClient.addNewSession(false, preset.name,
+                preset.workingDirectory);
+            return true;
+        }
 
         switch (item.getItemId()) {
             case CONTEXT_MENU_SELECT_URL_ID:
@@ -965,13 +993,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
+    private List<PluginRuntime.SessionPreset> getSessionPresets() {
+        PluginRuntime runtime = PluginManager.getRuntime();
+        return runtime == null ? java.util.Collections.<PluginRuntime.SessionPreset>emptyList()
+            : runtime.getSessionPresets();
+    }
+
     private void reloadActivityStyling(boolean recreateActivity) {
         if (mProperties != null) {
             reloadProperties();
 
+            if (mTermuxTerminalExtraKeys != null) mTermuxTerminalExtraKeys.reload();
+
             if (mExtraKeysView != null) {
                 mExtraKeysView.setButtonTextAllCaps(mProperties.shouldExtraKeysTextBeAllCaps());
-                mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
+                if (mTermuxTerminalExtraKeys != null)
+                    mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
             }
 
             // Update NightMode.APP_NIGHT_MODE

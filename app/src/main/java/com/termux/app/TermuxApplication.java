@@ -43,6 +43,9 @@ public class TermuxApplication extends Application {
         // Init app wide shell manager
         TermuxShellManager shellManager = TermuxShellManager.init(context);
 
+        // Init declarative plugin storage and runtime. Uses only getFilesDir()/plugins.
+        com.termux.app.plugins.PluginManager.init(context);
+
         // Set NightMode.APP_NIGHT_MODE
         TermuxThemeUtils.setAppNightMode(properties.getNightMode());
 

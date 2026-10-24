@@ -1,0 +1,163 @@
+name: Plugin verification (x86_64)
+
+# workflow_dispatch is only available once this workflow exists on the default
+# branch. Push is the supported first-run path for the plugins-system branch.
+on:
+  push:
+    branches:
+      - master
+      - plugins-system
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, unit tests, lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      # True only when assembly and APK verification succeeded. Later checks
+      # (lint) may still fail without preventing emulator evidence.
+      apk_built: ${{ steps.assemble.outcome == 'success' && steps.verify-apk.outcome == 'success' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install SDK platform, build tools, and NDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Plugin unit tests
+        run: ./gradlew :app:testDebugUnitTest --tests 'com.termux.app.plugins.*' --console=plain
+
+      - name: Full app unit tests
+        id: app-unit-tests
+        # Gradle may fail only so the XML gate can classify the known baseline failure.
+        run: |
+          set +e
+          ./gradlew :app:testDebugUnitTest --console=plain
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Check app results against known baseline
+        run: |
+          python3 scripts/check-unit-tests.py \
+            app/build/test-results/testDebugUnitTest \
+            --allow-baseline \
+            --min-tests 48 \
+            --gradle-exit "${{ steps.app-unit-tests.outputs.exit_code }}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Terminal emulator unit tests
+        run: ./gradlew :terminal-emulator:testDebugUnitTest --console=plain
+
+      - name: Build debug APK
+        id: assemble
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      - name: Verify APK and write checksums
+        id: verify-apk
+        run: |
+          set -euo pipefail
+          cd app/build/outputs/apk/debug
+          universal=$(find . -maxdepth 1 -name '*_universal.apk' -print -quit)
+          if [ -z "$universal" ]; then
+            echo "::error::Universal debug APK was not produced"
+            exit 1
+          fi
+          sha256sum ./*.apk > sha256sums.txt
+          cat sha256sums.txt
+
+      - name: Lint debug variant
+        run: ./gradlew :app:lintDebug --console=plain
+
+      - name: Check for debug APK
+        id: apk-files
+        if: always()
+        run: |
+          if compgen -G "app/build/outputs/apk/debug/*.apk" > /dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload debug APKs
+        if: always() && steps.apk-files.outputs.found == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: termux-debug-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/output-metadata.json
+            app/build/outputs/apk/debug/sha256sums.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: plugin-verification-reports
+          path: |
+            app/build/test-results/testDebugUnitTest
+            app/build/reports/tests/testDebugUnitTest
+            terminal-emulator/build/test-results/testDebugUnitTest
+            terminal-emulator/build/reports/tests/testDebugUnitTest
+            app/build/reports/lint-results-debug.*
+          if-no-files-found: warn
+          retention-days: 14
+
+  emulator-smoke:
+    name: Emulator smoke (API 34, x86_64)
+    needs: build-and-test
+    # Run whenever the APK itself was built, even if a later check such as lint
+    # failed. The overall workflow remains failed; this job only supplies evidence.
+    if: ${{ !cancelled() && needs.build-and-test.outputs.apk_built == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download debug APKs
+        uses: actions/download-artifact@v8
+        with:
+          name: termux-debug-apk
+          path: apk
+
+      - name: Run emulator smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash scripts/emulator-smoke.sh apk "$RUNNER_TEMP/termux-smoke"
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: emulator-smoke-evidence
+          path: ${{ runner.temp }}/termux-smoke
+          if-no-files-found: warn
+          retention-days: 14

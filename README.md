@@ -23,6 +23,7 @@ Quick how-to about Termux package management is available at [Package Management
 
 ## Contents
 - [Termux App and Plugins](#termux-app-and-plugins)
+- [Declarative Plugins (this fork)](#declarative-plugins-this-fork)
 - [Installation](#installation)
 - [Uninstallation](#uninstallation)
 - [Important Links](#important-links)
@@ -44,6 +45,33 @@ The core [Termux](https://github.com/termux/termux-app) app comes with the follo
 - [Termux:Styling](https://github.com/termux/termux-styling)
 - [Termux:Tasker](https://github.com/termux/termux-tasker)
 - [Termux:Widget](https://github.com/termux/termux-widget)
+##
+
+
+## Declarative Plugins (this fork)
+
+This fork adds an optional **declarative** plugin system, separate from the companion
+apps above. A plugin is a ZIP containing a manifest and a payload for one of:
+a terminal theme, an extra-keys layout, or a session preset. Catalog artifacts are
+authenticated by a signed index; bundled samples are covered by the APK signature.
+Plugins contain no
+Java/Kotlin/DEX/native code or scripts and cannot execute commands. They are managed
+under **Settings → Plugins** and are stored only in the app's private files directory.
+
+User configuration always wins: a plugin theme applies only when
+`~/.termux/colors.properties` is absent, and plugin extra keys apply only when
+`extra-keys` is not set in `termux.properties`. Uninstalling a plugin removes only its
+own files and registration.
+
+No repository URL or signing key is configured in this build; bundled samples are
+available from the manager and are not installed automatically. The format, threat
+model, test results, current limitations, and build prerequisites are in
+[`docs/plugins/README.md`](docs/plugins/README.md).
+
+Plugin API v1 is an MVP. The aarch64 development host cannot build the APK because
+Google's AAPT2/NDK toolchains are x86_64-only. An x86_64 CI workflow now builds and
+tests it, but that workflow has not run yet; device verification is still required. See
+[`docs/plugins/TESTING.md`](docs/plugins/TESTING.md).
 ##
 
 

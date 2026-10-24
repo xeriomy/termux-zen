@@ -8,6 +8,8 @@ import androidx.annotation.NonNull;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.termux.app.TermuxActivity;
+import com.termux.app.plugins.PluginManager;
+import com.termux.app.plugins.PluginRuntime;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalViewClient;
 import com.termux.shared.logger.Logger;
@@ -19,6 +21,8 @@ import com.termux.shared.termux.terminal.io.TerminalExtraKeys;
 import com.termux.view.TerminalView;
 
 import org.json.JSONException;
+
+import java.util.Properties;
 
 public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
 
@@ -42,6 +46,11 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
         setExtraKeys();
     }
 
+    /** Re-reads properties and active plugin state, then rebuilds the extra keys. */
+    public void reload() {
+        setExtraKeys();
+    }
+
 
     /**
      * Set the terminal extra keys and style.
@@ -55,6 +64,18 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
             // {@link #getExtraKeysStyleInternalPropertyValueFromValue(String)}
             String extrakeys = (String) mActivity.getProperties().getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS, true);
             String extraKeysStyle = (String) mActivity.getProperties().getInternalPropertyValue(TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE, true);
+
+            // A plugin is a fallback only. Explicit user values for the keys or the style win.
+            // Use the raw file properties: the internal map contains defaults for every known key.
+            Properties userProperties = mActivity.getProperties().getProperties(true);
+            if (!userProperties.containsKey(TermuxPropertyConstants.KEY_EXTRA_KEYS)) {
+                PluginRuntime runtime = PluginManager.getRuntime();
+                if (runtime != null && runtime.getExtraKeysJson() != null) {
+                    extrakeys = runtime.getExtraKeysJson();
+                    if (!userProperties.containsKey(TermuxPropertyConstants.KEY_EXTRA_KEYS_STYLE))
+                        extraKeysStyle = runtime.getExtraKeysStyle();
+                }
+            }
 
             ExtraKeysConstants.ExtraKeyDisplayMap extraKeyDisplayMap = ExtraKeysInfo.getCharDisplayMapForStyle(extraKeysStyle);
             if (ExtraKeysConstants.EXTRA_KEY_DISPLAY_MAPS.DEFAULT_CHAR_DISPLAY.equals(extraKeyDisplayMap) && !TermuxPropertyConstants.DEFAULT_IVALUE_EXTRA_KEYS_STYLE.equals(extraKeysStyle)) {

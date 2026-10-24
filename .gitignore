@@ -10,6 +10,7 @@ release/
 .externalNativeBuild
 .cxx
 *.zip
+!app/src/main/assets/plugins/*.zip
 
 # Local configuration file (sdk path, etc)
 local.properties

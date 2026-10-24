@@ -232,6 +232,53 @@
     <!-- About Preference -->
     <string name="about_preference_title">About</string>
 
+    <!-- Plugins -->
+    <string name="title_activity_plugin_manager">Plugins</string>
+    <string name="plugins_preferences_title">Plugins</string>
+    <string name="plugins_preferences_summary">Manage declarative themes, extra keys, and session presets</string>
+    <string name="plugins_installed_title">Installed</string>
+    <string name="plugins_catalog_title">Repository catalog</string>
+    <string name="plugins_none_installed">No plugins installed.</string>
+    <string name="plugins_install_bundled">Install bundled samples</string>
+    <string name="plugins_bundled_installed">Bundled samples installed</string>
+    <string name="plugins_bundled_none">No bundled samples are available</string>
+    <string name="plugins_repository_not_configured">No plugin repository is configured in this build.</string>
+    <string name="plugins_repository_refresh">Refresh catalog</string>
+    <string name="plugins_repository_empty">The repository has no plugins.</string>
+    <string name="plugins_repository_failed">Catalog error: %1$s</string>
+    <string name="plugins_loading_catalog">Loading catalog…</string>
+    <string name="plugins_enable">Enable</string>
+    <string name="plugins_disable">Disable</string>
+    <string name="plugins_uninstall">Uninstall</string>
+    <string name="plugins_install">Install</string>
+    <string name="plugins_status_enabled">Enabled</string>
+    <string name="plugins_status_disabled">Disabled</string>
+    <string name="plugins_plugin_summary">%1$s · %2$s · %3$s</string>
+    <string name="plugins_permissions">Permissions:\n  %1$s</string>
+    <string name="plugins_dependencies">Dependencies: %1$s</string>
+    <string name="plugins_dependencies_none">None</string>
+    <string name="plugins_preset_directory">Preset \"%1$s\" opens %2$s</string>
+    <string name="plugins_invalid_name">%1$s %2$s (invalid)</string>
+    <string name="plugins_invalid_message">Not usable: %1$s</string>
+    <string name="plugins_error_not_initialized">Plugin manager is not available.</string>
+    <string name="plugins_compatible">Compatible</string>
+    <string name="plugins_requires_core">Requires app %1$s</string>
+    <string name="plugins_already_installed">Installed version %1$s</string>
+    <string name="plugins_incompatible">This plugin requires a newer app version.</string>
+    <string name="plugins_confirm_enable_title">Enable %1$s?</string>
+    <string name="plugins_confirm_enable_message">Permissions:\n  %1$s\n\nDependencies: %2$s\n\nOnly one theme and one extra-keys plugin can be active at a time.</string>
+    <string name="plugins_confirm_uninstall_title">Uninstall %1$s?</string>
+    <string name="plugins_confirm_uninstall_message">This removes the plugin registration and its installed files. Terminal files, shell sessions, and your settings are not touched.</string>
+    <string name="plugins_confirm_install_title">Install %1$s?</string>
+    <string name="plugins_confirm_install_message">Version %1$s\nType: %2$s\n\nPermissions:\n  %3$s\n\nArtifact size: %4$d bytes\nSource: signed repository</string>
+    <string name="plugins_install_success">Installed. Enable it in the Installed list.</string>
+    <string name="plugins_enabled">Plugin enabled</string>
+    <string name="plugins_disabled">Plugin disabled</string>
+    <string name="plugins_uninstalled">Plugin uninstalled</string>
+    <string name="plugins_action_failed">Plugin action failed</string>
+    <string name="action_new_session_preset">New session: %1$s</string>
+    <string name="plugins_preset_unavailable">The preset directory is not available.</string>
+
     <!-- Donate Preference -->
     <string name="donate_preference_title">Donate</string>
 

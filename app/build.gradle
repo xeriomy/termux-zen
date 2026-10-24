@@ -51,6 +51,11 @@ android {
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
 
+        // Plugin catalog is disabled until a repository URL and its pinned RSA public key
+        // (Base64 X.509, 2048 bits or stronger) are configured at build time.
+        buildConfigField "String", "TERMUX_PLUGIN_REPOSITORY_URL", "\"\""
+        buildConfigField "String", "TERMUX_PLUGIN_REPOSITORY_PUBLIC_KEY", "\"\""
+
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
         manifestPlaceholders.TERMUX_APP_NAME = "Termux"
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
@@ -148,6 +153,8 @@ android {
 dependencies {
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.robolectric:robolectric:4.10"
+    // Real org.json for JVM unit tests; production uses Android's built-in implementation.
+    testImplementation "org.json:json:20240303"
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
 }
 
