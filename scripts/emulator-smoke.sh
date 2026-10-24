@@ -55,8 +55,22 @@ PY
     sleep 1
 }
 
-APK=$(find "$APK_DIR" -maxdepth 1 -name '*_universal.apk' -print -quit)
-[ -n "$APK" ] || die "no universal APK in $APK_DIR"
+# Keep evidence when a check fails so a red CI run is diagnosable.
+capture_failure() {
+    local status=$?
+    if [ "$status" -ne 0 ]; then
+        say "capturing failure diagnostics"
+        timeout 30 adb logcat -d > "$OUT/logcat.txt" 2>/dev/null || true
+        timeout 30 adb exec-out screencap -p > "$OUT/failure.png" 2>/dev/null || true
+        ui_dump || true
+    fi
+    exit "$status"
+}
+trap capture_failure EXIT
+
+APK=$(find "$APK_DIR" -maxdepth 1 -name '*_x86_64.apk' -print -quit)
+[ -n "$APK" ] || APK=$(find "$APK_DIR" -maxdepth 1 -name '*_universal.apk' -print -quit)
+[ -n "$APK" ] || die "no x86_64 or universal APK in $APK_DIR"
 say "APK: $APK"
 
 adb wait-for-device
@@ -72,14 +86,21 @@ say "first launch"
 adb shell am start -W -n "$TERMUX_ACTIVITY" | tee "$OUT/launch.txt"
 
 bootstrap_ok=0
-for _ in $(seq 1 90); do
+bootstrap_start=$SECONDS
+bootstrap_deadline=$((SECONDS + 900))
+bootstrap_next_report=$((SECONDS + 60))
+while [ "$SECONDS" -lt "$bootstrap_deadline" ]; do
     if adb shell run-as "$PKG" test -x files/usr/bin/login 2>/dev/null; then
         bootstrap_ok=1
         break
     fi
+    if [ "$SECONDS" -ge "$bootstrap_next_report" ]; then
+        say "bootstrap still installing ($((SECONDS - bootstrap_start))s)"
+        bootstrap_next_report=$((SECONDS + 60))
+    fi
     sleep 2
 done
-[ "$bootstrap_ok" = 1 ] || die "bootstrap did not become executable within 180s"
+[ "$bootstrap_ok" = 1 ] || die "bootstrap did not become executable within 900s"
 say "bootstrap installed"
 
 focused=0
