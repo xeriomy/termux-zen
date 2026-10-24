@@ -85,22 +85,44 @@ adb logcat -c || true
 say "first launch"
 adb shell am start -W -n "$TERMUX_ACTIVITY" | tee "$OUT/launch.txt"
 
-bootstrap_ok=0
+wait_for_bootstrap() {
+    local deadline=$((SECONDS + 720)) next_report=$((SECONDS + 60)) ticks=0
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if adb shell run-as "$PKG" test -x files/usr/bin/login 2>/dev/null; then
+            return 0
+        fi
+        ticks=$((ticks + 1))
+        # A recreated activity can start a second install that corrupts the staging
+        # tree; detect its error dialog instead of waiting out the deadline.
+        if [ "$ticks" -ge 6 ]; then
+            ticks=0
+            if ui_dump && grep -q 'Unable to install bootstrap' "$OUT/window.xml"; then
+                say "bootstrap error dialog detected"
+                return 1
+            fi
+        fi
+        if [ "$SECONDS" -ge "$next_report" ]; then
+            say "bootstrap still installing ($((SECONDS - bootstrap_start))s)"
+            next_report=$((SECONDS + 60))
+        fi
+        sleep 2
+    done
+    return 1
+}
+
 bootstrap_start=$SECONDS
-bootstrap_deadline=$((SECONDS + 900))
-bootstrap_next_report=$((SECONDS + 60))
-while [ "$SECONDS" -lt "$bootstrap_deadline" ]; do
-    if adb shell run-as "$PKG" test -x files/usr/bin/login 2>/dev/null; then
-        bootstrap_ok=1
-        break
-    fi
-    if [ "$SECONDS" -ge "$bootstrap_next_report" ]; then
-        say "bootstrap still installing ($((SECONDS - bootstrap_start))s)"
-        bootstrap_next_report=$((SECONDS + 60))
-    fi
-    sleep 2
-done
-[ "$bootstrap_ok" = 1 ] || die "bootstrap did not become executable within 900s"
+bootstrap_ok=0
+if wait_for_bootstrap; then
+    bootstrap_ok=1
+else
+    say "wiping the prefix and retrying bootstrap once"
+    adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
+    adb shell run-as "$PKG" rm -rf files/usr files/usr-staging >/dev/null 2>&1 || true
+    adb shell am start -W -n "$TERMUX_ACTIVITY" > "$OUT/launch-retry.txt" 2>&1 || true
+    bootstrap_start=$SECONDS
+    if wait_for_bootstrap; then bootstrap_ok=1; fi
+fi
+[ "$bootstrap_ok" = 1 ] || die "bootstrap did not become executable"
 say "bootstrap installed"
 
 focused=0
