@@ -23,11 +23,8 @@ ui_dump() {
     adb shell cat /sdcard/window.xml > "$OUT/window.xml"
 }
 
-ui_tap_text() {
-    local wanted=$1 attempts=${2:-1} coords=""
-    for _ in $(seq 1 "$attempts"); do
-        ui_dump || true
-        coords=$(python3 - "$OUT/window.xml" "$wanted" <<'PY'
+ui_coords() {
+    python3 - "$OUT/window.xml" "$1" <<'PY'
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -43,7 +40,13 @@ for node in root.iter("node"):
             print((values[0] + values[2]) // 2, (values[1] + values[3]) // 2)
             break
 PY
-)
+}
+
+ui_tap_text() {
+    local wanted=$1 attempts=${2:-1} coords=""
+    for _ in $(seq 1 "$attempts"); do
+        ui_dump || true
+        coords=$(ui_coords "$wanted")
         [ -n "$coords" ] && break
         adb shell input swipe 540 1600 540 600 300 || true
         sleep 1
@@ -53,6 +56,26 @@ PY
     read -r x y <<< "$coords"
     adb shell input tap "$x" "$y"
     sleep 1
+}
+
+# A sleeping screen or an app-not-responding dialog swallows synthetic input,
+# so both are cleared before the checks that type or tap.
+wake_device() {
+    adb shell svc power stayon true >/dev/null 2>&1 || true
+    adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+    adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
+}
+
+dismiss_anr() {
+    ui_dump || return 0
+    grep -q "isn't responding" "$OUT/window.xml" || return 0
+    local coords
+    coords=$(ui_coords "Wait")
+    [ -n "$coords" ] || return 0
+    say "dismissing the app-not-responding dialog"
+    read -r x y <<< "$coords"
+    adb shell input tap "$x" "$y"
+    sleep 2
 }
 
 # Keep evidence when a check fails so a red CI run is diagnosable.
@@ -74,6 +97,7 @@ APK=$(find "$APK_DIR" -maxdepth 1 -name '*_x86_64.apk' -print -quit)
 say "APK: $APK"
 
 adb wait-for-device
+wake_device
 say "device API $(adb shell getprop ro.build.version.sdk | tr -d '\r'), $(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 
 say "fresh install"
@@ -140,17 +164,23 @@ screenshot first-launch
 [ -n "$(adb shell pidof "$PKG" | tr -d '\r')" ] || die "app process is not running"
 
 say "terminal command with zero plugins"
-adb shell input tap 540 1000
-sleep 1
-adb shell input text 'touch%s.smoke-terminal-ok'
-adb shell input keyevent 66
 terminal_ok=0
-for _ in $(seq 1 20); do
-    if adb shell run-as "$PKG" test -f files/home/.smoke-terminal-ok 2>/dev/null; then
-        terminal_ok=1
-        break
-    fi
-    sleep 1
+for _ in 1 2 3; do
+    wake_device
+    dismiss_anr
+    adb shell input tap 540 1000
+    sleep 2
+    adb shell input text 'touch%s.smoke-terminal-ok'
+    adb shell input keyevent 66
+    for _ in $(seq 1 15); do
+        if adb shell run-as "$PKG" test -f files/home/.smoke-terminal-ok 2>/dev/null; then
+            terminal_ok=1
+            break
+        fi
+        sleep 1
+    done
+    [ "$terminal_ok" = 1 ] && break
+    say "terminal command did not run yet, retrying"
 done
 [ "$terminal_ok" = 1 ] || die "terminal command did not run"
 say "terminal command ran"
@@ -158,6 +188,8 @@ say "terminal command ran"
 say "Settings -> Plugins"
 adb shell am start -W -n "$SETTINGS_ACTIVITY" | tee "$OUT/settings-launch.txt"
 sleep 2
+wake_device
+dismiss_anr
 ui_tap_text "Plugins" 3
 sleep 2
 ui_dump || die "could not dump the plugin manager UI"

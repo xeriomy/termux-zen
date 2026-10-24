@@ -142,6 +142,16 @@ jobs:
           name: termux-debug-apk
           path: apk
 
+      - name: Enable KVM access
+        run: |
+          if [ ! -e /dev/kvm ]; then
+            echo "::warning::No /dev/kvm on this runner; the emulator runs without hardware acceleration"
+          elif sudo chmod 0666 /dev/kvm; then
+            echo "KVM access granted for the emulator"
+          else
+            echo "::warning::Could not change /dev/kvm permissions; the emulator may run without hardware acceleration"
+          fi
+
       - name: Run emulator smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:
