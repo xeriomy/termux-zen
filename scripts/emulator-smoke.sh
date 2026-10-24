@@ -215,8 +215,9 @@ for _ in $(seq 1 20); do
     sleep 1
 done
 [ "$samples_ok" = 1 ] || die "bundled samples did not appear"
-disabled=$(grep -o 'Disabled' "$OUT/window.xml" || true)
-disabled=$(printf '%s' "$disabled" | wc -l)
+# `wc -l` must read grep's output directly: piping through a variable drops the
+# trailing newline and undercounts by one.
+disabled=$(grep -o 'Disabled' "$OUT/window.xml" | wc -l || true)
 [ "$disabled" -ge 3 ] || die "expected three disabled samples, found $disabled"
 screenshot bundled-samples
 adb shell run-as "$PKG" cat files/plugins/registry.json > "$OUT/registry-after-install.json" 2>/dev/null || true
