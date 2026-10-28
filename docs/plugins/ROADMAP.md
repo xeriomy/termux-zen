@@ -42,11 +42,11 @@ These are known and documented, not accidental:
    installable content.
 6. **App-private state only.** Plugin files are not visible to Termux:Styling or
    companion apps. Plugin themes do not appear in other apps.
-7. **CI verification must be re-run for this revision.** The aarch64 host cannot build
-   the APK (x86_64 AAPT2/NDK). `.github/workflows/plugin-verification.yml` builds and
-   tests on `ubuntu-24.04`; the last recorded run covered the earlier sample bundle,
-   not the replacement bundled plugins and revised manager UI. See `TESTING.md` §6
-   and §9.
+7. **No physical-device verification.** The aarch64 host cannot build the APK
+   (x86_64 AAPT2/NDK). `.github/workflows/plugin-verification.yml` builds and tests on
+   `ubuntu-24.04`, and its green runs cover this revision, including the emulator
+   smoke job. The manual checklist in `TESTING.md` §6.2 still needs a physical device.
+   See `TESTING.md` §6 and §9.
 8. **Crash recovery is best-effort.** Normal exceptions roll back; a process kill at
    the wrong moment can leave a `.old-*` directory and an invalid plugin.
 9. **No revocation, expiry, or transparency log.** Key compromise requires an app

@@ -71,10 +71,10 @@ model, test results, current limitations, and build prerequisites are in
 
 Plugin API v1 is an MVP. The aarch64 development host cannot build the APK because
 Google's AAPT2/NDK toolchains are x86_64-only. An x86_64 CI workflow builds and
-tests it; the last recorded green run covered the earlier sample bundle, so the
-replacement bundle and rewritten manager still need a CI/emulator run before their
-device behavior can be claimed. Device verification of the manual steps is also
-still required. See [`docs/plugins/TESTING.md`](docs/plugins/TESTING.md).
+tests it, and its green runs cover this bundle and the rewritten manager, including
+an emulator smoke job that installs a bundled plugin and checks that it survives a
+restart. Device verification of the manual steps is still required. See
+[`docs/plugins/TESTING.md`](docs/plugins/TESTING.md).
 ##
 
 

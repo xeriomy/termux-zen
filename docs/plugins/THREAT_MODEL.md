@@ -194,9 +194,8 @@ Any future change must keep these true:
   supplies accessible labels and touch targets, but device-level TalkBack and large-font
   verification is still pending.
 - **The release APK build is blocked on this aarch64 host** by Google's x86_64-only
-  AAPT2/NDK. An x86_64 CI workflow builds and tests it; its last recorded run covered
-  the earlier sample bundle and must be repeated for this revision. This is a tooling
-  limitation, not a security control. See `TESTING.md` §9.
+  AAPT2/NDK. An x86_64 CI workflow builds and tests it, and its green runs cover this
+  revision. This is a tooling limitation, not a security control. See `TESTING.md` §9.
 
 ### 6.1 Catalog expiry and revocation
 

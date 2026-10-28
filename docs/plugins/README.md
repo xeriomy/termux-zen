@@ -6,10 +6,8 @@ preset. The app never downloads or runs Java/Kotlin bytecode, JARs, DEX, native 
 or scripts.
 
 Status: API v1 MVP implemented in `com.termux.app.plugins`. The x86_64 CI workflow and
-the emulator smoke job have run, but the last recorded green run covered the earlier
-sample bundle (run history in `TESTING.md` §9.3). The replacement bundle and rewritten
-manager still need a CI/emulator run, and device verification of the manual steps in
-`TESTING.md` §6.2 remains pending.
+the emulator smoke job are green for this revision (run history in `TESTING.md` §9.3).
+Device verification of the manual steps in `TESTING.md` §6.2 remains pending.
 
 ## Documents
 
@@ -64,9 +62,9 @@ the app does not recreate them on the next launch.
 - No repository URL or pinned key is configured in this build, so the Repository tab
   cannot install or update plugins in this build.
 - No automatic dependency installation.
-- No device-level or release-build verification of this revision yet. The aarch64 host
-  cannot build the APK; the x86_64 workflow and emulator job must be re-run for these
-  changes.
+- No device-level verification of this revision yet. The aarch64 host cannot build the
+  APK; the x86_64 workflow and emulator job cover this revision, but the manual
+  checklist in `TESTING.md` §6.2 still needs a physical device.
 - No revocation/expiry for the repository index.
 - No crash journal; normal rollback only.
 - No executable plugins, by design.

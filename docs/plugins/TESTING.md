@@ -1,8 +1,8 @@
 # Plugin System — Testing and Build Notes
 
-Status: local test evidence from 2026-10-22 through 2026-10-28; the last recorded
-x86_64 CI run (2026-10-24) covered the earlier sample bundle. Audience: anyone
-reproducing the work or reviewing its claims.
+Status: local test evidence from 2026-10-22 through 2026-10-28; the x86_64 CI run
+(2026-10-28) is green for this revision. Audience: anyone reproducing the work or
+reviewing its claims.
 
 Sections 2–8 are results from actual local runs. Section 9 records the executed CI
 runs, including what failed and why. Re-run the commands below for the current
@@ -236,12 +236,13 @@ its observation is recorded; the commands below are not evidence by themselves.
 
 ## 7. What was not tested
 
-- **CI verification.** The x86_64 workflow and emulator smoke job in §9 last ran
-  against the earlier sample bundle. The current replacement bundle and revised
-  manager UI have not yet been exercised by that workflow.
+- **CI verification.** The x86_64 workflow and emulator smoke job in §9 are green for
+  this revision: the replacement bundle and the revised manager UI were exercised.
 - **Device/emulator execution.** No APK was built in this environment, so runtime
   styling, menu behavior, persistence across process death, and TalkBack/accessibility
-  were not exercised. The physical-device checklist in §6.2 is still pending.
+  were not exercised here. The CI emulator job covers install, first launch, one
+  terminal command, the manager screen, a bundled install, and restart persistence.
+  The physical-device checklist in §6.2 is still pending.
 - **Real repository.** No signed repository or pinned key is configured in this build;
   only the parser/verifier unit tests and the bundled plugins were exercised. Remote
   catalog behavior stays disabled until a real repository and production trust
@@ -364,6 +365,7 @@ runs, whose two failures were both smoke-script assertion bugs rather than app b
 | [40719421450](https://github.com/xeriomy/termux-zen/actions/runs/40719421450) | `6ad7d208` | green | failed (smoke assertion: uppercase dialog button) |
 | [40721528274](https://github.com/xeriomy/termux-zen/actions/runs/40721528274) | `02758899` | **green** | **green, ~45 seconds** |
 | [40733083297](https://github.com/xeriomy/termux-zen/actions/runs/40733083297) | `0e6f3cbf` | **green** | **green** |
+| [40736015071](https://github.com/xeriomy/termux-zen/actions/runs/40736015071) | `f409b5d4` | **green** | **green** |
 
 The last run is the verification for the replacement bundle and the rewritten manager.
 Measured from the run's own artifacts:
