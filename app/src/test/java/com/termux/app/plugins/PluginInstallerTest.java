@@ -185,6 +185,51 @@ public class PluginInstallerTest {
     }
 
     @Test
+    public void rejectsArtifactThatDoesNotMatchSignedCatalogEntry() throws Exception {
+        byte[] archive = PluginTestUtils.zip(
+            PluginTestUtils.themeManifest("com.termux.sample.theme", "1.0.0"),
+            PluginTestUtils.themePayload());
+
+        PluginException error = assertThrows(PluginException.class, () -> installer.install(archive,
+            PluginArchive.sha256(archive), archive.length,
+            PluginInstaller.SOURCE_REPOSITORY, false,
+            new PluginInstaller.ExpectedArtifact("com.termux.sample.theme", "2.0.0",
+                PluginApi.TYPE_THEME)));
+        assertTrue(error.getMessage().contains("does not match the signed repository entry"));
+        assertNull(registry.find("com.termux.sample.theme"));
+    }
+
+    @Test
+    public void rejectsArtifactWithDifferentPluginId() throws Exception {
+        byte[] archive = PluginTestUtils.zip(
+            PluginTestUtils.themeManifest("com.termux.sample.other", "1.0.0"),
+            PluginTestUtils.themePayload());
+
+        assertThrows(PluginException.class, () -> installer.install(archive,
+            PluginArchive.sha256(archive), archive.length,
+            PluginInstaller.SOURCE_REPOSITORY, false,
+            new PluginInstaller.ExpectedArtifact("com.termux.sample.theme", "1.0.0",
+                PluginApi.TYPE_THEME)));
+        assertNull(registry.find("com.termux.sample.other"));
+        assertNull(registry.find("com.termux.sample.theme"));
+    }
+
+    @Test
+    public void installsArtifactMatchingSignedCatalogEntry() throws Exception {
+        byte[] archive = PluginTestUtils.zip(
+            PluginTestUtils.themeManifest("com.termux.sample.theme", "1.0.0"),
+            PluginTestUtils.themePayload());
+
+        PluginRegistry.Entry entry = installer.install(archive,
+            PluginArchive.sha256(archive), archive.length,
+            PluginInstaller.SOURCE_REPOSITORY, false,
+            new PluginInstaller.ExpectedArtifact("com.termux.sample.theme", "1.0.0",
+                PluginApi.TYPE_THEME));
+        assertNotNull(entry);
+        assertFalse(entry.enabled);
+    }
+
+    @Test
     public void detectsTamperedInstalledFiles() throws Exception {
         PluginRegistry.Entry entry = installTheme("com.termux.sample.theme", "1.0.0", true);
         File manifest = new File(registry.getInstalledDir(),
@@ -208,20 +253,64 @@ public class PluginInstallerTest {
     }
 
     @Test
-    public void installBundledSamplesOnce() throws Exception {
-        // AssetManager is not available in a JVM test; the bundled loop is covered by manual
-        // device verification and by validating each bundled ZIP through the same installer path.
+    public void removesObsoleteBundledSamples() throws Exception {
+        installer.install(PluginTestUtils.zip(
+            PluginTestUtils.manifest("com.termux.sample.developerkeys", "1.0.0",
+                PluginApi.TYPE_EXTRA_KEYS, ""),
+            PluginTestUtils.extraKeysPayload()), null, -1,
+            PluginInstaller.SOURCE_BUNDLED, true);
+
+        assertEquals(1, installer.removeObsoleteBundledPlugins());
+        assertNull(registry.find("com.termux.sample.developerkeys"));
+        assertFalse(new File(registry.getInstalledDir(),
+            "com.termux.sample.developerkeys").exists());
+    }
+
+    @Test
+    public void obsoleteSampleIdsFromRepositoryArePreserved() throws Exception {
+        installer.install(PluginTestUtils.zip(
+            PluginTestUtils.manifest("com.termux.sample.developerkeys", "1.0.0",
+                PluginApi.TYPE_EXTRA_KEYS, ""),
+            PluginTestUtils.extraKeysPayload()), null, -1,
+            PluginInstaller.SOURCE_REPOSITORY, true);
+
+        assertEquals(0, installer.removeObsoleteBundledPlugins());
+        assertNotNull(registry.find("com.termux.sample.developerkeys"));
+    }
+
+    @Test
+    public void bundledPluginsAreUsefulAndInstallOnce() throws Exception {
+        // AssetManager is not available in a JVM test; validate each bundled ZIP through the same
+        // production manifest, payload, and installer paths.
         File[] assets = new File("src/main/assets/plugins").listFiles();
         assertNotNull(assets);
+        assertEquals(3, assets.length);
+
+        java.util.Map<String, String> expected = new java.util.LinkedHashMap<>();
+        expected.put("coding-keys.zip", "com.termux.bundled.coding-keys");
+        expected.put("paper-light.zip", "com.termux.bundled.paper-light");
+        expected.put("solarized-dark.zip", "com.termux.bundled.solarized-dark");
+
         for (File asset : assets) {
             byte[] bytes = java.nio.file.Files.readAllBytes(asset.toPath());
             PluginArchive archive = PluginArchive.read(bytes);
             PluginManifest manifest = PluginManifest.parse(
                 new String(archive.manifestJson, PluginTestUtils.UTF_8), PluginTestUtils.CORE);
-            PluginPayload.parse(new String(archive.payloadJson, PluginTestUtils.UTF_8), manifest);
+            PluginPayload payload = PluginPayload.parse(
+                new String(archive.payloadJson, PluginTestUtils.UTF_8), manifest);
+            assertEquals(expected.get(asset.getName()), manifest.id);
+            if ("coding-keys.zip".equals(asset.getName())) {
+                assertTrue(payload.extraKeysJson.contains("\"key\":\"COPY\""));
+                assertTrue(payload.extraKeysJson.contains("\"key\":\"PASTE\""));
+                assertFalse(payload.extraKeysJson.contains(
+                    "\"popup\":{\"key\":\"CTRL\",\"popup\""));
+            }
+            assertFalse(manifest.description.trim().isEmpty());
             installer.install(bytes, null, -1, PluginInstaller.SOURCE_BUNDLED, false);
             assertNotNull(registry.find(manifest.id));
         }
+
+        assertEquals(3, registry.entries().size());
     }
 
     private PluginRegistry.Entry installTheme(String id, String version, boolean enable)

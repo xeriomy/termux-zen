@@ -25,7 +25,7 @@ Rules enforced by `PluginArchive`:
 - The archive is never written to the filesystem, so ZIP path traversal and symlink
   metadata have no target.
 
-Bundled samples in `app/src/main/assets/plugins/` follow the same format. They are
+Bundled plugins in `app/src/main/assets/plugins/` follow the same format. They are
 trusted because they are covered by the APK signature, not because they are bundled.
 
 ## 2. `manifest.json`
@@ -144,6 +144,8 @@ Unknown fields are rejected. The remaining fields depend on the type.
   button object).
 - `style` is optional; allowed values are `default`, `arrows-only`, `arrows-all`,
   `all`, and `none`. Invalid values are rejected.
+- A `popup` may contain one button object, but the popup cannot contain another popup.
+  The host extra-keys renderer supports exactly one popup level.
 - The plugin payload validator checks this JSON shape. At render time the host builds
   `ExtraKeysInfo`; if that final parse fails, the host falls back to the default
   layout rather than applying a partial bar.
@@ -177,7 +179,7 @@ Unknown fields are rejected. The remaining fields depend on the type.
 The repository base URL is compiled into the APK as
 `TERMUX_PLUGIN_REPOSITORY_URL`; the pinned RSA public key is
 `TERMUX_PLUGIN_REPOSITORY_PUBLIC_KEY` (Base64 X.509, at least 2048 bits). Both are empty
-in this build, so the catalog is disabled. Bundled samples remain available.
+in this build, so the catalog is disabled. Bundled plugins remain available.
 
 The app downloads:
 
@@ -219,7 +221,8 @@ Index schema:
   signed index is the authority for the artifact location.
 - `sha256` is 64 hexadecimal characters; `size` is 1–524288 bytes.
 - After download the app checks the size and SHA-256, then validates the artifact as a
-  plugin. The installer repeats both checks before committing.
+  plugin. The installer repeats both checks before committing and also requires the
+  artifact manifest's ID, version, and type to match the signed index entry.
 - `minCoreVersion` is compared to the app's `versionName`; incompatible entries are
   shown as unavailable rather than installed.
 

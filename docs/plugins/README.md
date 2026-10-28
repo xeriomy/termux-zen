@@ -6,9 +6,10 @@ preset. The app never downloads or runs Java/Kotlin bytecode, JARs, DEX, native 
 or scripts.
 
 Status: API v1 MVP implemented in `com.termux.app.plugins`. The x86_64 CI workflow and
-the emulator smoke job have run and the latest run is green (run history in
-`TESTING.md` §9.3); device verification of the manual steps in `TESTING.md` §6.2
-remains pending.
+the emulator smoke job have run, but the last recorded green run covered the earlier
+sample bundle (run history in `TESTING.md` §9.3). The replacement bundle and rewritten
+manager still need a CI/emulator run, and device verification of the manual steps in
+`TESTING.md` §6.2 remains pending.
 
 ## Documents
 
@@ -25,14 +26,15 @@ remains pending.
 
 1. Build and install the debug APK as described in [TESTING.md](TESTING.md) §6.
 2. Open **Settings → Plugins**.
-3. Tap **Install bundled samples**. Three samples appear, initially disabled.
-4. Enable **Midnight** (theme), **Keys** (extra-keys), or **Preset** (session preset).
-5. User configuration wins: a `~/.termux/colors.properties` disables the plugin theme,
+3. Open the **Bundled** tab and install **Solarized Dark**, **Paper Light**, or
+   **Coding keys**. Each install is confirmed before it is added and enabled.
+4. Open **Installed** to review its status, disable it, or uninstall it.
+5. User configuration wins: a `~/.termux/colors.properties` disables plugin themes,
    and an explicit `extra-keys` or `extra-keys-style` in `termux.properties` overrides
    the plugin keys.
 
-Bundled samples are not installed automatically. This keeps uninstall permanent: the
-app does not recreate a sample on the next launch.
+The bundled plugins are not installed automatically. This keeps uninstall permanent:
+the app does not recreate them on the next launch.
 
 ## What is implemented
 
@@ -50,16 +52,21 @@ app does not recreate a sample on the next launch.
 - Signed HTTPS repository index with a pinned RSA key; artifact size and hash checks;
   bundled assets trusted by the APK signature.
 - Host-side capability enforcement and fail-closed runtime.
-- Settings entry, manager screen, confirmations, enable/disable/uninstall.
-- 46 JUnit tests; 47 of 48 app tests pass, the one failure is pre-existing.
+- Settings entry, Material plugin manager with Installed/Bundled/Repository tabs,
+  search, loading/empty/error states, confirmations, and enable/disable/uninstall.
+- Three useful bundled plugins: Solarized Dark, Paper Light, and Coding keys.
+- Plugin unit tests cover the archive, manifest, payload, registry, installer,
+  repository client, and signature verifier. Exact current counts are in
+  [TESTING.md](TESTING.md).
 
 ## What is not implemented
 
-- No repository URL or pinned key is configured in this build.
-- No update button; no automatic dependency installation.
-- No device-level or release-build verification yet. The x86_64 workflow in
-  [TESTING.md](TESTING.md) §9 has not executed, and the aarch64 host cannot build the
-  APK.
+- No repository URL or pinned key is configured in this build, so the Repository tab
+  cannot install or update plugins in this build.
+- No automatic dependency installation.
+- No device-level or release-build verification of this revision yet. The aarch64 host
+  cannot build the APK; the x86_64 workflow and emulator job must be re-run for these
+  changes.
 - No revocation/expiry for the repository index.
 - No crash journal; normal rollback only.
 - No executable plugins, by design.
@@ -77,7 +84,7 @@ buildConfigField "String", "TERMUX_PLUGIN_REPOSITORY_PUBLIC_KEY", "\"\""
 
 Set the URL to an HTTPS base containing `index.json` and `index.json.sig`, and the key
 to a Base64 X.509 RSA public key of at least 2048 bits. Leaving either empty disables
-the catalog; the bundled samples remain available. The index format and signature
+the catalog; the bundled plugins remain available. The index format and signature
 rules are in [PLUGIN_FORMAT.md](PLUGIN_FORMAT.md) §4.
 
 ## Non-negotiable constraints

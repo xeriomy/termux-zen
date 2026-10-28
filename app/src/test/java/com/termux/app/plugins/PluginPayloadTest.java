@@ -65,6 +65,17 @@ public class PluginPayloadTest {
     }
 
     @Test
+    public void rejectsNestedExtraKeyPopups() {
+        PluginManifest extraKeys = parse(PluginTestUtils.manifest(
+            "com.termux.sample.keys", "1.0.0", PluginApi.TYPE_EXTRA_KEYS, ""));
+        String nested = "{\"schemaVersion\":1,\"type\":\"extra_keys\","
+            + "\"keys\":\"[[{\\\"key\\\":\\\"ESC\\\",\\\"popup\\\":{"
+            + "\\\"key\\\":\\\"CTRL\\\",\\\"popup\\\":{\\\"key\\\":\\\"ALT\\\"}}}]]\","
+            + "\"style\":\"default\"}";
+        assertThrows(PluginException.class, () -> PluginPayload.parse(nested, extraKeys));
+    }
+
+    @Test
     public void rejectsPayloadTypeMismatch() {
         String mismatch = PluginTestUtils.themePayload().replace("\"theme\"", "\"session_preset\"");
         assertThrows(PluginException.class, () -> PluginPayload.parse(mismatch, theme));

@@ -1,10 +1,12 @@
 # Plugin System — Testing and Build Notes
 
-Status: local test evidence from 2026-10-22; x86_64 CI verification executed on
-2026-10-24 and green. Audience: anyone reproducing the work or reviewing its claims.
+Status: local test evidence from 2026-10-22 through 2026-10-28; the last recorded
+x86_64 CI run (2026-10-24) covered the earlier sample bundle. Audience: anyone
+reproducing the work or reviewing its claims.
 
 Sections 2–8 are results from actual local runs. Section 9 records the executed CI
-runs, including what failed and why.
+runs, including what failed and why. Re-run the commands below for the current
+revision before treating its device and APK behavior as verified.
 
 ## 1. Development environment
 
@@ -85,35 +87,36 @@ Command:
   --console=plain
 ```
 
-Result: `BUILD SUCCESSFUL in 2m 15s`; **46 tests passed**. Log:
-`/tmp/opencode/test-plugins-final4.log`.
+Result: `BUILD SUCCESSFUL`; **54 tests passed** on the current revision (2026-10-28).
 
 | Test class | Tests | Covers |
 | --- | ---: | --- |
 | `PluginApiTest` | 4 | Semver validation/comparison, ID rules, capability/type mapping |
 | `PluginArchiveTest` | 4 | In-memory read, traversal/duplicate/unexpected entries, missing files, size limits |
-| `PluginInstallerTest` | 13 | Install/enable/disable/uninstall, exclusive types, dependencies, cycles, updates, downgrade rejection, checksum/size, tamper detection, uninstall leaving unrelated files, bundled samples |
+| `PluginCardTest` | 2 | Card search over visible identity, metadata, status, and status detail |
+| `PluginInstallerTest` | 18 | Install/enable/disable/uninstall, exclusive types, dependencies, cycles, updates, downgrade rejection, checksum/size, signed-catalog identity, tamper detection, uninstall leaving unrelated files, obsolete-bundle migration, bundled plugins |
 | `PluginManifestTest` | 8 | Valid manifest, unknown fields, unsupported type/capability/API, newer core, malformed/duplicate/self dependencies, strict JSON types, out-of-range integers |
-| `PluginPayloadTest` | 6 | Theme colors and limits, required foreground/background, preset path escapes, extra-keys JSON shape, payload type mismatch |
+| `PluginPayloadTest` | 7 | Theme colors and limits, required foreground/background, preset path escapes, extra-keys JSON shape, nested-popup rejection, payload type mismatch |
 | `PluginRegistryTest` | 3 | Save/load, corrupt registry quarantine, invalid record isolation |
 | `PluginRepositoryClientTest` | 4 | Signed index parsing, compatibility flag, HTTPS enforcement, unknown fields/duplicates |
 | `PluginSignatureVerifierTest` | 4 | RSA signature verification, wrong data, undersized key, Base64 validation |
 
-The bundled samples are parsed and installed through `PluginArchive`,
-`PluginManifest`, and `PluginPayload` in `PluginInstallerTest.installBundledSamplesOnce`.
-`AssetManager` is unavailable in a plain JVM test, so that test reads the three ZIPs
-from `app/src/main/assets/plugins` directly; the asset-listing/install loop itself
-still needs a device check.
+The bundled plugins are parsed and installed through `PluginArchive`,
+`PluginManifest`, and `PluginPayload` in
+`PluginInstallerTest.bundledPluginsAreUsefulAndInstallOnce`. `AssetManager` is
+unavailable in a plain JVM test, so that test reads the three ZIPs from
+`app/src/main/assets/plugins` directly; the asset-listing/install loop itself still needs
+a device check.
 
 ## 4. Full app test run
 
 Command: the unit-test command above.
 
-Result: `48 tests completed, 1 failed`; `BUILD FAILED in 1m 18s`. Log:
-`/tmp/opencode/test-app-9.log`. (The suite recompiled after a source edit; an incremental
-run of the same suite took 20s.)
+Result on the current revision (2026-10-28): `56 tests completed, 1 failed`; `BUILD FAILED`.
+The failure is the same documented baseline below; the baseline gate passes with
+`--min-tests 56`.
 
-- 46 plugin tests pass.
+- 54 plugin tests pass.
 - `TermuxActivityTest` passes.
 - `FileReceiverActivityTest` fails with the same pre-existing Robolectric teardown
   NPE recorded in the clean baseline.
@@ -200,38 +203,45 @@ its observation is recorded; the commands below are not evidence by themselves.
 
 1. Install the APK; open Termux; confirm the terminal and bootstrap still work and
    **zero** plugins are installed.
-2. Settings → Plugins → Install bundled samples. Three entries appear, disabled.
-3. Enable Midnight. With no `~/.termux/colors.properties`, colors change after the
-   activity resumes. Disable it; the built-in colors return.
-4. Create `~/.termux/colors.properties`; reopen styling; the user file wins and the
-   plugin is inert.
-5. Enable the extra-keys sample. With no explicit `extra-keys` in
-   `termux.properties`, the bar changes. Disable it; the built-in bar returns.
-6. Add an explicit `extra-keys` value; the user value wins.
-7. Create a directory under `$HOME`; enable the preset sample; long-press the terminal
-   and select its menu entry. A normal session opens in that directory.
-8. Disable each plugin; the built-in theme/keys/preset entries disappear.
-9. Uninstall each plugin; confirm no `$HOME` or `~/.termux` file changed and the
+2. Settings → Plugins → Bundled. Confirm Solarized Dark, Paper Light, and Coding keys
+   are shown with type, description, and permission metadata.
+3. Install Solarized Dark, confirm the permission notice and that it becomes active, then
+   verify it is enabled in the Installed tab. With no `~/.termux/colors.properties`, colors
+   change after the activity resumes. Disable it; the built-in colors return.
+4. Create `~/.termux/colors.properties`; reopen Plugins; Solarized Dark is labeled
+   overridden. Reopen styling; the user file wins and the plugin remains inert.
+5. Install Coding keys and verify it becomes active. With no explicit `extra-keys` in
+   `termux.properties`, the bar changes. Select terminal text and tap Copy to place it
+   on the clipboard; tap Paste to paste clipboard text. Disable the plugin; the built-in
+   bar returns.
+6. Add an explicit `extra-keys` value; reopen Plugins; Coding keys is labeled
+   overridden and the user value wins.
+7. Disable each installed plugin; its contribution disappears.
+8. Uninstall each plugin; confirm no `$HOME` or `~/.termux` file changed and the
    entries are gone after restart. Unrelated user configuration must remain.
-10. Reinstall the APK (or force-stop and relaunch); plugin registrations and enabled
-    state persist. The CI emulator job checks installed-sample persistence only.
-11. Corrupt one installed `manifest.json`; reopen Plugins; the entry is shown invalid
-    and contributes nothing. Restore it or uninstall it through the manager.
-12. Confirm the manager shows "No plugin repository is configured in this build."
-    Do **not** configure a production repository URL or key in this phase; remote
-    catalog behavior stays disabled until a real repository and trust configuration
-    exist.
+9. Reinstall the APK (or force-stop and relaunch); plugin registrations and enabled
+   state persist. The CI emulator job checks bundled-plugin persistence only.
+10. Corrupt one installed `manifest.json`; reopen Plugins; the entry is shown as
+    needing attention and contributes nothing. Restore it or uninstall it through
+    the manager.
+11. Confirm the Repository tab shows that no plugin repository is configured in this
+    build. Do **not** configure a production repository URL or key in this phase;
+    remote catalog behavior stays disabled until a real repository and trust
+    configuration exist.
+12. Search for each plugin name, verify filtering in all three tabs, and rotate the
+    device with TalkBack enabled. Every action must have a descriptive label and a
+    48 dp minimum touch target.
 
 ## 7. What was not tested
 
-- **CI verification.** The x86_64 workflow and emulator smoke job in §9 have not run.
-  GitHub Actions only runs on a pushed ref; this worktree is uncommitted and no
-  x86_64 host was available.
+- **CI verification.** The x86_64 workflow and emulator smoke job in §9 last ran
+  against the earlier sample bundle. The current replacement bundle and revised
+  manager UI have not yet been exercised by that workflow.
 - **Device/emulator execution.** No APK was built in this environment, so runtime
   styling, menu behavior, persistence across process death, and TalkBack/accessibility
   were not exercised. The physical-device checklist in §6.2 is still pending.
 - **Real repository.** No signed repository or pinned key is configured in this build;
-  only the parser/verifier unit tests and the bundled samples were exercised. Remote
+  only the parser/verifier unit tests and the bundled plugins were exercised. Remote
   catalog behavior stays disabled until a real repository and production trust
   configuration exist.
 - **Release build/R8.** The release pipeline was not run; the activity is
@@ -272,7 +282,7 @@ Tasks, in order, all required:
 | --- | --- |
 | Plugin tests | `./gradlew :app:testDebugUnitTest --tests 'com.termux.app.plugins.*'` |
 | Full app suite | `./gradlew :app:testDebugUnitTest` |
-| Baseline gate | `python3 scripts/check-unit-tests.py app/build/test-results/testDebugUnitTest --allow-baseline --min-tests 48 --gradle-exit "$EXIT"` |
+| Baseline gate | `python3 scripts/check-unit-tests.py app/build/test-results/testDebugUnitTest --allow-baseline --min-tests 56 --gradle-exit "$EXIT"` |
 | Terminal emulator | `./gradlew :terminal-emulator:testDebugUnitTest` |
 | APK | `./gradlew :app:assembleDebug` |
 | APK verification | require the universal APK and write `sha256sums.txt` |
@@ -326,9 +336,9 @@ cancelled, the emulator job is skipped because no APK artifact exists.
 
 The script performs a fresh install (uninstall first), first launch, bootstrap wait,
 one terminal command typed into the terminal with zero plugins, Settings → Plugins,
-install of all three bundled samples, and a force-stop/relaunch check that the
-registrations persist. It saves screenshots, UI dumps, `registry.json`, and logcat to
-the `emulator-smoke-evidence` artifact.
+the disabled-repository state, installation of the Coding keys bundled plugin, and a
+force-stop/relaunch check that the registration persists. It saves screenshots, UI dumps,
+`registry.json`, and logcat to the `emulator-smoke-evidence` artifact.
 
 It deliberately does **not** claim coverage of theme application/fallback, extra-keys
 application/fallback, preset use, uninstall safety, invalid-state recovery, or
@@ -351,15 +361,18 @@ Final run, all steps successful. Measured from the run's own artifacts:
 
 | Check | Result |
 | --- | --- |
-| Plugin unit tests (`--tests 'com.termux.app.plugins.*'`) | 46 tests, 0 failures, 0 skipped |
-| Full `:app` suite | 48 tests, 0 failures, 0 skipped |
-| Baseline gate | 48 executed ≥ `--min-tests 48`, 0 baseline failures |
+| Plugin unit tests (`--tests 'com.termux.app.plugins.*'`) | 46 tests, 0 failures, 0 skipped (earlier revision) |
+| Full `:app` suite | 48 tests, 0 failures, 0 skipped (earlier revision) |
+| Baseline gate | 48 executed ≥ `--min-tests 48`, 0 baseline failures (earlier revision) |
 | `:terminal-emulator` unit tests | 145 tests, 0 failures |
 | `lintDebug` | 31 warnings, 0 errors |
 | Debug APK | 5 ABIs + universal assembled and checksummed |
 
 The emulator job PASSED install → first launch → bootstrap → terminal command →
 Settings → Plugins → bundled install → restart persistence, in about one minute.
+That run exercised the previous sample bundle; the current script checks the same core
+paths with the replacement Coding keys bundle and must be re-run on CI before its result
+is claimed for this revision.
 
 Two of the four failures were environment causes worth recording:
 

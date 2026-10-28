@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,12 +28,22 @@ public final class PluginInstaller {
     public static final String SOURCE_REPOSITORY = "repository";
     public static final String BUNDLED_ASSET_DIR = "plugins";
 
+    private static final Set<String> OBSOLETE_BUNDLED_PLUGIN_IDS = Collections.unmodifiableSet(
+        new HashSet<>(Arrays.asList(
+            "com.termux.sample.developerkeys",
+            "com.termux.sample.midnight",
+            "com.termux.sample.homesession")));
+
     private static final Charset UTF_8 = Charset.forName("UTF-8");
     private static final int MAX_PLUGIN_JSON_BYTES = 128 * 1024;
 
     private final File mPluginsDir;
     private final PluginRegistry mRegistry;
     private final String mCoreVersion;
+
+    /** Bundled assets cannot change while the process is alive, so they are parsed only once. */
+    private AssetManager mCachedAssets;
+    private List<BundledPlugin> mCachedBundledPlugins;
 
     public PluginInstaller(File pluginsDir, PluginRegistry registry, String coreVersion) {
         mPluginsDir = pluginsDir;
@@ -41,29 +52,81 @@ public final class PluginInstaller {
         clearStaging();
     }
 
-    /** Installs bundled samples that are not installed yet. Returns the number installed. */
-    public int installBundledSamples(AssetManager assets) throws PluginException {
+    /**
+     * Returns the validated plugins bundled in the APK. Bundled plugins are trusted only because
+     * the APK signature covers the assets; they still pass the normal manifest, payload, API, and
+     * core-version checks.
+     */
+    public synchronized List<BundledPlugin> getBundledPlugins(AssetManager assets) throws PluginException {
+        if (assets == mCachedAssets && mCachedBundledPlugins != null) {
+            return mCachedBundledPlugins;
+        }
         String[] names;
         try {
             names = assets.list(BUNDLED_ASSET_DIR);
         } catch (IOException e) {
             throw new PluginException("Could not list bundled plugins", e);
         }
-        if (names == null) return 0;
+        if (names == null) return Collections.emptyList();
 
-        int installed = 0;
         Arrays.sort(names);
+        List<BundledPlugin> plugins = new ArrayList<>();
         for (String name : names) {
             if (!name.endsWith(".zip")) continue;
             byte[] bytes = readAsset(assets, BUNDLED_ASSET_DIR + "/" + name);
             PluginArchive archive = PluginArchive.read(bytes);
             PluginManifest manifest = PluginManifest.parse(
                 new String(archive.manifestJson, UTF_8), mCoreVersion);
-            if (mRegistry.find(manifest.id) != null) continue;
-            install(bytes, null, -1, SOURCE_BUNDLED, false);
-            installed++;
+            PluginPayload payload = PluginPayload.parse(
+                new String(archive.payloadJson, UTF_8), manifest);
+            plugins.add(new BundledPlugin(name, manifest, payload, bytes));
         }
-        return installed;
+        mCachedAssets = assets;
+        mCachedBundledPlugins = Collections.unmodifiableList(plugins);
+        return mCachedBundledPlugins;
+    }
+
+    /**
+     * Removes registrations for bundled samples replaced by the current bundled plugin set.
+     * Repository plugins and unrelated installations are left untouched.
+     */
+    public int removeObsoleteBundledPlugins() throws PluginException {
+        mRegistry.load();
+        List<String> obsolete = new ArrayList<>();
+        for (PluginRegistry.Entry entry : mRegistry.entries()) {
+            if (SOURCE_BUNDLED.equals(entry.source)
+                && OBSOLETE_BUNDLED_PLUGIN_IDS.contains(entry.id)) {
+                obsolete.add(entry.id);
+            }
+        }
+
+        if (!obsolete.isEmpty()) {
+            // Remove every obsolete registration first so one undeletable directory cannot leave a
+            // later sample active. Dependents are disabled before the registry is committed.
+            for (String id : obsolete) disableDependents(id);
+            for (String id : obsolete) mRegistry.remove(id);
+            try {
+                mRegistry.save();
+            } catch (PluginException e) {
+                // Restore the on-disk state in memory; the obsolete registrations are still active.
+                mRegistry.load();
+                throw e;
+            }
+        }
+
+        // Delete the files of every obsolete id, not only the registered ones. A previous cleanup
+        // failure can leave an orphaned directory with no registry record, and nothing else ever
+        // revisits it.
+        PluginException cleanupFailure = null;
+        for (String id : OBSOLETE_BUNDLED_PLUGIN_IDS) {
+            File pluginDir = new File(mRegistry.getInstalledDir(), id);
+            if (pluginDir.exists() && !deleteRecursively(pluginDir, mRegistry.getInstalledDir())
+                && cleanupFailure == null) {
+                cleanupFailure = new PluginException("Could not delete obsolete plugin files: " + id);
+            }
+        }
+        if (cleanupFailure != null) throw cleanupFailure;
+        return obsolete.size();
     }
 
     /**
@@ -73,6 +136,18 @@ public final class PluginInstaller {
      */
     public PluginRegistry.Entry install(byte[] bytes, String expectedSha256, long expectedSize,
                                         String source, boolean enable) throws PluginException {
+        return install(bytes, expectedSha256, expectedSize, source, enable, null);
+    }
+
+    /**
+     * Installs one artifact. Repository callers must verify the signed index first and pass the
+     * index's expected SHA-256 and size. When {@code expected} is not null, the artifact manifest
+     * must also match the identity advertised by the signed catalog entry, so a catalog can never
+     * install a different plugin than the one the user confirmed.
+     */
+    public PluginRegistry.Entry install(byte[] bytes, String expectedSha256, long expectedSize,
+                                        String source, boolean enable, ExpectedArtifact expected)
+        throws PluginException {
         if (!SOURCE_BUNDLED.equals(source) && !SOURCE_REPOSITORY.equals(source))
             throw new PluginException("Unknown plugin source: " + source);
         if (expectedSize >= 0 && bytes != null && bytes.length != expectedSize)
@@ -85,6 +160,11 @@ public final class PluginInstaller {
 
         PluginManifest manifest = PluginManifest.parse(
             new String(archive.manifestJson, UTF_8), mCoreVersion);
+        if (expected != null && (!manifest.id.equals(expected.id)
+            || !manifest.version.equals(expected.version)
+            || !manifest.type.equals(expected.type))) {
+            throw new PluginException("Plugin artifact does not match the signed repository entry");
+        }
         PluginPayload payload = PluginPayload.parse(
             new String(archive.payloadJson, UTF_8), manifest);
 
@@ -180,7 +260,13 @@ public final class PluginInstaller {
         if (mRegistry.find(id) == null) throw new PluginException("Plugin is not installed: " + id);
         disableDependents(id);
         mRegistry.remove(id);
-        mRegistry.save();
+        try {
+            mRegistry.save();
+        } catch (PluginException e) {
+            // Keep the in-memory registry consistent with the durable state.
+            mRegistry.load();
+            throw e;
+        }
 
         File pluginDir = new File(mRegistry.getInstalledDir(), id);
         if (pluginDir.exists() && !deleteRecursively(pluginDir, mRegistry.getInstalledDir())) {
@@ -436,6 +522,35 @@ public final class PluginInstaller {
             this.entry = entry;
             this.manifest = manifest;
             this.payload = payload;
+        }
+    }
+
+    /** Identity advertised by a signed repository catalog entry. */
+    public static final class ExpectedArtifact {
+        public final String id;
+        public final String version;
+        public final String type;
+
+        public ExpectedArtifact(String id, String version, String type) {
+            this.id = id;
+            this.version = version;
+            this.type = type;
+        }
+    }
+
+    /** A validated plugin shipped in the APK assets. */
+    public static final class BundledPlugin {
+        public final String assetName;
+        public final PluginManifest manifest;
+        public final PluginPayload payload;
+        public final byte[] archiveBytes;
+
+        BundledPlugin(String assetName, PluginManifest manifest, PluginPayload payload,
+                      byte[] archiveBytes) {
+            this.assetName = assetName;
+            this.manifest = manifest;
+            this.payload = payload;
+            this.archiveBytes = archiveBytes;
         }
     }
 

@@ -18,6 +18,7 @@ import com.termux.shared.termux.extrakeys.ExtraKeysInfo;
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import com.termux.shared.termux.settings.properties.TermuxSharedProperties;
 import com.termux.shared.termux.terminal.io.TerminalExtraKeys;
+import com.termux.terminal.TerminalSession;
 import com.termux.view.TerminalView;
 
 import org.json.JSONException;
@@ -114,6 +115,24 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
                 drawerLayout.closeDrawer(Gravity.LEFT);
             else
                 drawerLayout.openDrawer(Gravity.LEFT);
+        } else if ("COPY".equals(key)) {
+            TerminalView terminalView = mTermuxTerminalViewClient.getActivity().getTerminalView();
+            String selectedText = terminalView == null ? null : terminalView.getSelectedText();
+            if (selectedText == null || selectedText.isEmpty()) {
+                Logger.showToast(mActivity,
+                    mActivity.getString(com.termux.R.string.plugins_clipboard_copy_selection_required),
+                    true);
+            } else {
+                TerminalSession session = terminalView.getCurrentSession();
+                if (session != null) {
+                    session.onCopyTextToClipboard(selectedText);
+                } else {
+                    Logger.showToast(mActivity,
+                        mActivity.getString(com.termux.R.string.plugins_clipboard_no_session),
+                        true);
+                }
+                terminalView.stopTextSelectionMode();
+            }
         } else if ("PASTE".equals(key)) {
             if(mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.onPasteTextFromClipboard(null);

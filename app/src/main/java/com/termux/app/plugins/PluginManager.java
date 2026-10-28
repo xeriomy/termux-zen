@@ -34,6 +34,13 @@ public final class PluginManager {
         registry.load();
         PluginInstaller installer = new PluginInstaller(pluginsDir, registry,
             BuildConfig.VERSION_NAME);
+        try {
+            installer.removeObsoleteBundledPlugins();
+        } catch (PluginException e) {
+            // A failed migration must not prevent the app from starting. When the registry could
+            // not be committed, the old registrations stay active and are retried on the next
+            // launch; leftover files are ignored by the runtime and cleaned up on a later launch.
+        }
         PluginRuntime runtime = new PluginRuntime(installer);
         runtime.reload();
         sInstance = new PluginManager(registry, installer, runtime);

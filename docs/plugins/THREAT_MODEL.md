@@ -86,7 +86,7 @@ Boundaries and assumptions:
 | ZIP bomb / oversized entry | 512 KiB artifact, 128 KiB per entry, 256 KiB total uncompressed, checked while reading | None known; CPU for decompression is bounded by output size |
 | Duplicate or unexpected entries | Exact allowlist; duplicate names rejected | None known |
 | Unknown or mistyped manifest/payload fields | Strict allowlists and type checks at every level; unknown fields reject the plugin | Future format additions need a new API version |
-| Oversized JSON or deeply nested data | Manifest 32 KiB, payload 128 KiB, extra-keys 8 KiB, popup depth 4; parser exceptions reject the plugin | A parser bug could still be a denial of service; install is user-initiated |
+| Oversized JSON or deeply nested data | Manifest 32 KiB, payload 128 KiB, extra-keys 8 KiB, one popup level; parser exceptions reject the plugin | A parser bug could still be a denial of service; install is user-initiated |
 | Malformed theme color leaves partial palette | Every color validated before use; host resets and applies only a fully valid map | Host `TerminalColors` parsing is still the final gate |
 
 ### 4.2 Capability and type confusion
@@ -116,6 +116,7 @@ Boundaries and assumptions:
 | Threat | Mitigation | Residual risk |
 | --- | --- | --- |
 | MITM changes catalog or artifact | HTTPS plus signature over exact index bytes with pinned RSA key; artifact size and SHA-256 from signed index | A compromised TLS stack or pinned key compromises the catalog |
+| Signed catalog entry points at a different artifact than confirmed | The artifact manifest ID, version, and type must match the signed catalog entry exactly, otherwise the install is rejected | A compromised signing key can still publish a wrong-but-consistent entry |
 | Forged index from another key | Key is compiled into the APK; RSA keys under 2048 bits rejected | Key rotation requires an app release |
 | Redirect to an untrusted host | Redirects disabled; non-200 responses rejected | None known |
 | Oversized or slow response | 15 s connect/read timeouts; index 256 KiB, signature 8 KiB, artifact 512 KiB enforced while reading | Network-level traffic analysis remains |
@@ -186,14 +187,16 @@ Any future change must keep these true:
   kill between directory rename and registry commit can leave an orphaned `.old-*`
   directory; the plugin fails closed.
 - **No automatic dependency installation.** Users must install dependencies first.
-- **No plugin update UI.** A repository catalog entry for an already installed ID is
-  shown as installed; same-version reinstall and upgrades are available through the
-  installer API and bundled path, not a dedicated update button.
-- **The plugin manager is a single programmatic screen.** It is functional and
-  confirmation-gated, but not a full accessibility-reviewed settings experience.
+- **Updates require a configured repository.** The Repository tab exposes Update for a
+  newer signed catalog entry, but no repository URL and key are configured in this build.
+  Bundled plugins therefore have no update path yet.
+- **The plugin manager uses a single Material screen.** It is confirmation-gated and
+  supplies accessible labels and touch targets, but device-level TalkBack and large-font
+  verification is still pending.
 - **The release APK build is blocked on this aarch64 host** by Google's x86_64-only
-  AAPT2/NDK. An x86_64 CI workflow builds and tests it and its latest run is green;
-  this is a tooling limitation, not a security control. See `TESTING.md` §9.
+  AAPT2/NDK. An x86_64 CI workflow builds and tests it; its last recorded run covered
+  the earlier sample bundle and must be repeated for this revision. This is a tooling
+  limitation, not a security control. See `TESTING.md` §9.
 
 ### 6.1 Catalog expiry and revocation
 
@@ -209,7 +212,7 @@ a new key. Revocation currently means an app release, not a signed catalog opera
 
 Remote catalog remains **disabled** in this build
 (`TERMUX_PLUGIN_REPOSITORY_URL` and `TERMUX_PLUGIN_REPOSITORY_PUBLIC_KEY` are empty).
-Bundled samples do not depend on the catalog and remain functional.
+Bundled plugins do not depend on the catalog and remain functional.
 
 ### 6.2 Replay and downgrade protection
 
@@ -230,10 +233,10 @@ expiry, checked against persisted state, with tests for replay and rollback.
 
 ### 6.3 Update visibility and failure recovery
 
-The installer supports same-version reinstall and higher-version updates. The manager
-does not expose an update action: a catalog entry whose ID is already installed is
-shown as "Installed version X" with no button. Users cannot discover or trigger an
-update from the UI in v1.
+The installer supports same-version reinstall and higher-version updates. When a
+repository is configured, the manager shows Update for a catalog entry newer than the
+installed version and confirms the old and new versions before downloading. No
+repository is configured in this build, so bundled plugins have no update path yet.
 
 Normal update failures roll back: the new version is staged, the old directory is
 renamed aside, the registry commit is last, and exceptions restore the old directory.
@@ -260,8 +263,8 @@ the manifest before use.
 
 No production plugin-signing key was generated, committed, or configured in this
 phase. Both repository build fields are empty, so the catalog code path is inert; there
-is no remote artifact fetch, signature verification against a production key, or
-catalog UI beyond the "not configured" message.
+is no remote artifact fetch or signature verification against a production key. The
+Repository tab shows the "not configured" state.
 
 The format expects a Base64 X.509 RSA public key of at least 2048 bits, pinned in the
 APK at build time, and a `SHA256withRSA` signature over the exact `index.json` bytes.

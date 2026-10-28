@@ -46,13 +46,15 @@ com.termux.app.plugins
 ├── PluginPermissionManager      # capability/type enforcement and labels
 ├── PluginInstaller              # validation, staging, commit, rollback, uninstall
 ├── PluginManager                # app-scoped facade and initialization
-└── PluginManagerActivity        # installed + catalog UI, confirmations
+├── PluginManagerActivity        # Material tabs, cards, search, and confirmations
+├── PluginCard                   # immutable card model for installed/available plugins
+└── PluginCardAdapter            # RecyclerView binding and action callbacks
 ```
 
-There is no separate `Semver`, catalog model, dependency resolver, package class, or
-list adapter: those responsibilities fit in `PluginApi`, `PluginRepositoryClient`,
-`PluginInstaller`, and the single activity. Keeping the MVP small was deliberate; see
-`ROADMAP.md` before splitting it.
+There is no separate `Semver`, catalog model, dependency resolver, or package class:
+those responsibilities fit in `PluginApi`, `PluginRepositoryClient`, and `PluginInstaller`.
+The UI keeps its display model separate from persistence and validation. See
+`ROADMAP.md` before splitting it further.
 
 The UI is a new activity because the specification requires catalog and per-plugin
 operation views, not a single settings switch. The settings root gains one entry that
@@ -106,9 +108,9 @@ properties and the shell manager are initialized, before the theme is applied. I
 5. The app continues even if all plugin state is invalid.
 
 No network access and no catalog refresh happen at startup. The repository catalog is
-fetched only when `PluginManagerActivity` opens (and only if a URL and key are configured).
-Bundled samples are listed and installed only after the user taps **Install bundled
-samples**.
+fetched only when the user opens the **Repository** tab (and only if a URL and key are
+configured). Bundled plugins are listed in the **Bundled** tab and installed only after
+an explicit per-plugin confirmation.
 
 ### 4.2 Enable
 
@@ -140,7 +142,9 @@ The UI shows the resulting states.
 ### 4.4 Install
 
 1. Validate the source (`bundled` or `repository`), optional expected size and SHA-256, the
-   archive, manifest, payload, and API/core compatibility.
+   archive, manifest, payload, and API/core compatibility. Repository installs also pass the
+   signed catalog entry's ID, version, and type; the artifact manifest must match them exactly,
+   so a signed catalog can never install a different plugin than the one the user confirmed.
 2. Reject a version lower than the installed version, a missing dependency, a dependency
    cycle, or, when the plugin will be enabled, a dependency that is disabled or an
    exclusive conflict. An update keeps the installed enabled state, so an enabled plugin
@@ -150,8 +154,9 @@ The UI shows the resulting states.
    `installed/<id>/<version>`.
 4. Add a registry record and persist. If persistence fails, delete the new directory and
    restore any directory moved aside; the old registry is reloaded.
-5. The UI installs bundled and repository plugins with `enabled=false`; the user enables
-   them explicitly. The installer API can enable on install, but the manager does not.
+5. The UI installs bundled plugins with `enabled=true` after a confirmation that explicitly
+   says the plugin will become active. Repository plugins are installed with `enabled=false`;
+   the user enables them from the Installed tab. The installer API supports both behaviors.
 
 ### 4.5 Update
 
@@ -225,29 +230,40 @@ callback code. Pulling keeps ordering and disposal deterministic.
 
 ## 6. UI behavior
 
-Settings → Plugins opens `PluginManagerActivity`, a single scrolling screen with:
+Settings → Plugins opens `PluginManagerActivity`, a Material screen with a summary and
+three searchable tabs:
 
-- **Installed**: name, version, ID, type, enabled/disabled/invalid status, permissions,
-  dependencies, description, and preset directory. Actions are Enable, Disable, and
-  Uninstall.
-- **Install bundled samples**: one button; samples are installed only if their ID is not
-  already present, and stay disabled until the user enables them.
-- **Catalog**: when a repository is configured, signed entries with name, version, type,
-  compatibility, permissions, dependencies, and an Install button. The catalog is fetched
-  once per activity; a refresh button retries after a failure.
+- **Installed**: name, version, ID, type, enabled/disabled/invalid/overridden status,
+  permissions, dependencies, description, and preset directory. Actions are Enable,
+  Disable, Details, and Uninstall.
+- **Bundled**: the three plugins shipped in the APK: Solarized Dark, Paper Light, and
+  Coding keys. Each card shows its type, description, permission, and dependencies;
+  Install is available only when the plugin is not already installed. Confirmation states
+  that the plugin becomes active after installation and that another theme or extra-keys
+  provider will be disabled.
+- **Repository**: when a repository is configured, signed entries with name, version, type,
+  compatibility, permissions, dependencies, and Install or Update. The catalog is fetched
+  only when this tab is opened; Retry and Refresh recover from a failed fetch or load a newer
+  signed index.
+
+The screen provides explicit loading, empty, search-empty, and error states. Cards use
+48 dp minimum action targets and descriptive labels for assistive technology.
 
 Confirmations:
 
 - Enable shows declared permissions and dependencies.
-- Repository install shows version, type, permissions, and size.
+- Install shows version, type, permissions, artifact source, the authenticated artifact
+  size, whether the plugin becomes active immediately, and states that explicit user
+  settings continue to win.
+- Update shows the installed and available versions, the artifact source, and the
+  authenticated artifact size.
 - Uninstall explains that only plugin files and registrations are removed; Termux settings
   and home files are not touched.
-- Disable is reversible and needs no confirmation.
+- Disable is reversible and is confirmed before any dependent plugins are disabled.
 
-Network catalog work runs on a single background executor. Installed-entry validation and
-registry reloads are bounded but currently run on the UI thread; with the MVP's small state
-this was acceptable, and moving it off-thread is a roadmap item. `onResume` refreshes the
-screen and retries the catalog only if it was not loaded.
+Registry, installed-entry validation, and catalog work run on a single background
+executor. Results are applied to the UI thread. `onResume` refreshes installed state and
+retries a failed catalog only when its tab is visible.
 
 ## 7. Compatibility and versioning
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Emulator smoke test for the declarative plugin build.
 # Coverage: fresh install, first launch + bootstrap, one terminal command with zero
-# plugins, Settings -> Plugins, bundled sample install, and restart persistence.
-# Theme/extra-keys/preset application, uninstall safety, and invalid-state recovery
-# remain manual checks in docs/plugins/TESTING.md section 6.2.
+# plugins, Settings -> Plugins, one bundled plugin install, and restart persistence.
+# Theme/extra-keys application, uninstall safety, search, accessibility, and
+# invalid-state recovery remain manual checks in docs/plugins/TESTING.md section 6.2.
 set -euo pipefail
 
 APK_DIR=${1:?usage: emulator-smoke.sh <apk-dir> [output-dir]}
@@ -193,35 +193,89 @@ dismiss_anr
 ui_tap_text "Plugins" 3
 sleep 2
 ui_dump || die "could not dump the plugin manager UI"
-grep -q 'text="Install bundled samples"' "$OUT/window.xml" \
+grep -q 'text="Installed"' "$OUT/window.xml" \
     || die "plugin manager did not open"
-grep -q 'text="No plugins installed."' "$OUT/window.xml" \
+grep -q 'text="No plugins are installed."' "$OUT/window.xml" \
     || die "fresh install already has plugins"
+say "plugin manager opened with zero installed plugins"
+
+say "check repository state"
+ui_tap_text "Repository" 3
+sleep 1
+ui_dump || die "could not dump repository state"
 grep -q 'text="No plugin repository is configured in this build."' "$OUT/window.xml" \
     || die "remote catalog is unexpectedly configured"
-say "plugin manager opened with zero installed plugins and no remote catalog"
+say "remote catalog is disabled in this build"
 
-say "install bundled samples"
-ui_tap_text "Install bundled samples"
-samples_ok=0
-for _ in $(seq 1 20); do
+say "open bundled plugins"
+ui_tap_text "Bundled" 3
+sleep 1
+ui_dump || die "could not dump bundled plugin list"
+
+# The Material cards are taller than the emulator viewport, so uiautomator only
+# reports the laid-out children. Scroll through the list and assert each card as
+# it becomes visible instead of expecting every row in one dump. The bundled
+# assets are sorted by file name, so the cards appear in this order.
+assert_bundled_card() {
+    local wanted=$1
+    for _ in $(seq 1 8); do
+        ui_dump || true
+        if grep -q "text=\"$wanted\"" "$OUT/window.xml"; then
+            say "found bundled plugin '$wanted'"
+            return 0
+        fi
+        adb shell input swipe 540 1500 540 700 300 || true
+        sleep 1
+    done
+    die "$wanted is missing from bundled plugins"
+}
+
+# Start at the top of the list.
+for _ in $(seq 1 4); do
+    adb shell input swipe 540 700 540 1500 300 || true
+    sleep 1
+done
+assert_bundled_card "Coding keys"
+assert_bundled_card "Paper Light"
+assert_bundled_card "Solarized Dark"
+screenshot bundled-plugins
+
+say "install Coding keys"
+# Return to the top of the list, then scroll just enough to reveal the first
+# card's action row. The button's accessibility label includes the plugin name.
+for _ in $(seq 1 6); do
+    adb shell input swipe 540 700 540 1500 300 || true
+    sleep 1
+done
+install_coords=""
+for _ in $(seq 1 8); do
     ui_dump || true
-    if grep -q 'text="Midnight 1.0.0"' "$OUT/window.xml" \
-        && grep -q 'text="Developer keys 1.0.0"' "$OUT/window.xml" \
-        && grep -q 'text="Home session 1.0.0"' "$OUT/window.xml"; then
-        samples_ok=1
+    install_coords=$(ui_coords "Coding keys Install")
+    [ -n "$install_coords" ] && break
+    adb shell input swipe 540 1500 540 700 300 || true
+    sleep 1
+done
+[ -n "$install_coords" ] || die "could not find the Coding keys install button"
+say "tap 'Coding keys Install' at $install_coords"
+read -r ix iy <<< "$install_coords"
+adb shell input tap "$ix" "$iy"
+sleep 1
+ui_dump || die "could not dump install confirmation"
+grep -q 'text="Install Coding keys?"' "$OUT/window.xml" \
+    || die "install confirmation did not appear"
+ui_tap_text "Install" 2
+install_ok=0
+for _ in $(seq 1 20); do
+    adb shell run-as "$PKG" cat files/plugins/registry.json > "$OUT/registry-after-install.json" 2>/dev/null || true
+    if grep -q 'com.termux.bundled.coding-keys' "$OUT/registry-after-install.json"; then
+        install_ok=1
         break
     fi
     sleep 1
 done
-[ "$samples_ok" = 1 ] || die "bundled samples did not appear"
-# `wc -l` must read grep's output directly: piping through a variable drops the
-# trailing newline and undercounts by one.
-disabled=$(grep -o 'Disabled' "$OUT/window.xml" | wc -l || true)
-[ "$disabled" -ge 3 ] || die "expected three disabled samples, found $disabled"
-screenshot bundled-samples
-adb shell run-as "$PKG" cat files/plugins/registry.json > "$OUT/registry-after-install.json" 2>/dev/null || true
-say "bundled samples installed and disabled"
+[ "$install_ok" = 1 ] || die "bundled plugin did not install"
+screenshot bundled-installed
+say "bundled plugin installed"
 
 say "restart persistence"
 adb shell am force-stop "$PKG"
@@ -232,11 +286,10 @@ sleep 2
 ui_tap_text "Plugins" 3
 sleep 2
 ui_dump || die "could not dump the plugin manager UI after restart"
-for name in "Midnight 1.0.0" "Developer keys 1.0.0" "Home session 1.0.0"; do
-    grep -q "text=\"$name\"" "$OUT/window.xml" || die "not persisted after restart: $name"
-done
+grep -q 'text="Coding keys"' "$OUT/window.xml" \
+    || die "installed plugin was not persisted after restart"
 screenshot after-restart
-say "plugin registrations persisted across restart"
+say "plugin registration persisted across restart"
 
 adb logcat -d -b crash > "$OUT/crash.log" 2>/dev/null || true
 if grep -A 25 'FATAL EXCEPTION' "$OUT/crash.log" | grep -q "Process: $PKG"; then

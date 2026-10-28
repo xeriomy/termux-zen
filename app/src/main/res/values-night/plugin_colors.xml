@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- See the day-mode plugin_colors.xml for why these are explicit colors. -->
+    <color name="plugin_surface_background">#121212</color>
+    <color name="plugin_surface_stroke">#3C4043</color>
+    <color name="plugin_state_error">#F2B8B5</color>
+    <color name="plugin_state_notice">#BDC1C6</color>
+    <color name="plugin_status_enabled_background">#274E13</color>
+    <color name="plugin_status_enabled_text">#B6F2C0</color>
+    <color name="plugin_status_disabled_background">#3C4043</color>
+    <color name="plugin_status_disabled_text">#BDC1C6</color>
+    <color name="plugin_status_attention_background">#5C1F1B</color>
+    <color name="plugin_status_attention_text">#F2B8B5</color>
+    <color name="plugin_status_overridden_background">#4A3C00</color>
+    <color name="plugin_status_overridden_text">#FAD67A</color>
+</resources>

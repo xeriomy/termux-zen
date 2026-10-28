@@ -60,7 +60,7 @@ jobs:
           python3 scripts/check-unit-tests.py \
             app/build/test-results/testDebugUnitTest \
             --allow-baseline \
-            --min-tests 48 \
+            --min-tests 56 \
             --gradle-exit "${{ steps.app-unit-tests.outputs.exit_code }}" \
             | tee -a "$GITHUB_STEP_SUMMARY"
 

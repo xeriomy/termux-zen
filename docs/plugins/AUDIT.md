@@ -133,8 +133,9 @@ A clean detached worktree at `8629e632` was tested after the toolchain was insta
   `ShadowActivityThread.reset: ActivityThread not set` on JDK 17. `TermuxActivityTest`
   passes.
 
-The current tree has 46 plugin tests; all pass. The full `:app` suite has 48 tests with the
-same single pre-existing failure. No new test failures were introduced. A release APK could
+The current tree has 54 plugin tests; all pass. The full `:app` suite has 56 tests with the
+same single pre-existing failure; the CI baseline gate is therefore set to `--min-tests 56`.
+No new test failures were introduced. A release APK could
 not be built on this aarch64 host because Google's AAPT2 and NDK toolchains are x86_64-only;
 the aapt2 override makes resource processing and unit tests run, but native compilation fails
 with `ERROR: Unknown host CPU architecture: aarch64`. This is a toolchain limitation, not a

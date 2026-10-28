@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+     Card surfaces and strokes use explicit colors instead of ?attr/colorSurface and
+     ?attr/colorOutline: the app theme does not define those attributes, so resolving them
+     throws while inflating a MaterialCardView.
+     -->
+    <color name="plugin_surface_background">#FFFFFF</color>
+    <color name="plugin_surface_stroke">#E0E0E0</color>
+    <color name="plugin_state_error">#B3261E</color>
+    <color name="plugin_state_notice">#5F6368</color>
+    <color name="plugin_status_enabled_background">#E6F4EA</color>
+    <color name="plugin_status_enabled_text">#137333</color>
+    <color name="plugin_status_disabled_background">#F1F3F4</color>
+    <color name="plugin_status_disabled_text">#5F6368</color>
+    <color name="plugin_status_attention_background">#FCE8E6</color>
+    <color name="plugin_status_attention_text">#B3261E</color>
+    <color name="plugin_status_overridden_background">#FEF7E0</color>
+    <color name="plugin_status_overridden_text">#8D6E00</color>
+</resources>

@@ -134,9 +134,9 @@ public final class PluginPayload {
         if (value instanceof String) return;
         if (!(value instanceof JSONObject))
             throw new PluginException("Extra keys entries must be strings or objects");
-        if (depth > 4) throw new PluginException("Extra keys popup nesting is too deep");
-
         JSONObject button = (JSONObject) value;
+        Set<String> allowed = new HashSet<>(Arrays.asList("key", "macro", "display", "popup"));
+        PluginJson.rejectUnknownFields(button, allowed);
         boolean hasKey = button.has("key");
         boolean hasMacro = button.has("macro");
         if (hasKey == hasMacro)
@@ -147,6 +147,8 @@ public final class PluginPayload {
         if (button.has("display") && !(button.opt("display") instanceof String))
             throw new PluginException("Extra key 'display' must be a string");
         if (button.has("popup")) {
+            if (depth > 0)
+                throw new PluginException("Extra key popups cannot contain nested popups");
             Object popup = button.opt("popup");
             if (!(popup instanceof JSONObject))
                 throw new PluginException("Extra key 'popup' must be an object");
