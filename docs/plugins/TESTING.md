@@ -363,6 +363,7 @@ runs, whose two failures were both smoke-script assertion bugs rather than app b
 | [40716833035](https://github.com/xeriomy/termux-zen/actions/runs/40716833035) | `26c204e8` | green | failed (smoke assertion: case-sensitive tab label) |
 | [40719421450](https://github.com/xeriomy/termux-zen/actions/runs/40719421450) | `6ad7d208` | green | failed (smoke assertion: uppercase dialog button) |
 | [40721528274](https://github.com/xeriomy/termux-zen/actions/runs/40721528274) | `02758899` | **green** | **green, ~45 seconds** |
+| [40733083297](https://github.com/xeriomy/termux-zen/actions/runs/40733083297) | `0e6f3cbf` | **green** | **green** |
 
 The last run is the verification for the replacement bundle and the rewritten manager.
 Measured from the run's own artifacts:
@@ -373,7 +374,7 @@ Measured from the run's own artifacts:
 | Full `:app` suite | 59 tests, 0 failures, 0 skipped |
 | Test gate | 59 executed ≥ `--min-tests 59`, 0 failures, no quarantine |
 | `:terminal-emulator` unit tests | 145 tests, 0 failures |
-| `lintDebug` | 35 warnings, 0 errors |
+| `lintDebug` | 30 warnings, 0 errors |
 | Debug APK | 5 ABIs + universal assembled and checksummed |
 
 The emulator job PASSED install → first launch → bootstrap → terminal command →

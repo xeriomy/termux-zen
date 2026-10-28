@@ -19,9 +19,9 @@ Status: after the v1 MVP and Phase 6 verification scaffolding. Audience: maintai
   Settings integration.
 - JUnit tests for the core; exact results in `TESTING.md`.
 - An x86_64 CI workflow for plugin tests, the full app suite, terminal-emulator tests,
-  lint, and a debug APK, plus a baseline-aware JUnit gate and an emulator smoke job.
-  It ran five times against the earlier revision; the run history and the four failures
-  it took to get there are in `TESTING.md` §9.3. This revision still needs a new run.
+  lint, and a debug APK, plus a JUnit gate that fails on any failure and an emulator
+  smoke job. The workflow is green for this revision; the run history and the failures
+  it took to get there are in `TESTING.md` §9.3.
 - Architecture, format, threat model, audit, and testing documents.
 
 ## 2. Deliberate v1 limitations
@@ -67,7 +67,8 @@ Ordered by risk reduction, not feature count.
 ### M1 — Prove it on a device
 
 - Run the workflow in `TESTING.md` §9 on a pushed branch and record its APK hash,
-  JUnit counts, lint result, and emulator proof.
+  JUnit counts, lint result, and emulator proof. **Done for the API 34 emulator**;
+  the APK hash and counts are recorded in `TESTING.md` §9.3.
 - Execute the manual checklist in `TESTING.md` §6.2 on Android 7, 10, and 14
   (API 21/29/34 minimum) with a clean `com.termux` install. The API 34 emulator job
   covers only install, first launch, one terminal command, the Plugins screen,
