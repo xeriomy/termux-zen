@@ -42,6 +42,27 @@ for node in root.iter("node"):
 PY
 }
 
+# Checks whether a node with the given text or content description is present.
+# TabLayout renders its titles uppercased in "text" and keeps the original in
+# "content-desc", so both are checked and the comparison ignores case.
+ui_has() {
+    python3 - "$OUT/window.xml" "$1" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+wanted = sys.argv[2].lower()
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+except Exception:
+    raise SystemExit(1)
+for node in root.iter("node"):
+    for value in (node.get("text"), node.get("content-desc")):
+        if value and value.lower() == wanted:
+            raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
 ui_tap_text() {
     local wanted=$1 attempts=${2:-1} coords=""
     for _ in $(seq 1 "$attempts"); do
@@ -193,17 +214,15 @@ dismiss_anr
 ui_tap_text "Plugins" 3
 sleep 2
 ui_dump || die "could not dump the plugin manager UI"
-grep -q 'text="Installed"' "$OUT/window.xml" \
-    || die "plugin manager did not open"
-grep -q 'text="No plugins are installed."' "$OUT/window.xml" \
-    || die "fresh install already has plugins"
+ui_has "Installed" || die "plugin manager did not open"
+ui_has "No plugins are installed." || die "fresh install already has plugins"
 say "plugin manager opened with zero installed plugins"
 
 say "check repository state"
 ui_tap_text "Repository" 3
 sleep 1
 ui_dump || die "could not dump repository state"
-grep -q 'text="No plugin repository is configured in this build."' "$OUT/window.xml" \
+ui_has "No plugin repository is configured in this build." \
     || die "remote catalog is unexpectedly configured"
 say "remote catalog is disabled in this build"
 
@@ -220,7 +239,7 @@ assert_bundled_card() {
     local wanted=$1
     for _ in $(seq 1 8); do
         ui_dump || true
-        if grep -q "text=\"$wanted\"" "$OUT/window.xml"; then
+        if ui_has "$wanted"; then
             say "found bundled plugin '$wanted'"
             return 0
         fi
@@ -261,8 +280,7 @@ read -r ix iy <<< "$install_coords"
 adb shell input tap "$ix" "$iy"
 sleep 1
 ui_dump || die "could not dump install confirmation"
-grep -q 'text="Install Coding keys?"' "$OUT/window.xml" \
-    || die "install confirmation did not appear"
+ui_has "Install Coding keys?" || die "install confirmation did not appear"
 ui_tap_text "Install" 2
 install_ok=0
 for _ in $(seq 1 20); do
@@ -286,8 +304,7 @@ sleep 2
 ui_tap_text "Plugins" 3
 sleep 2
 ui_dump || die "could not dump the plugin manager UI after restart"
-grep -q 'text="Coding keys"' "$OUT/window.xml" \
-    || die "installed plugin was not persisted after restart"
+ui_has "Coding keys" || die "installed plugin was not persisted after restart"
 screenshot after-restart
 say "plugin registration persisted across restart"
 
