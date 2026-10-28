@@ -549,10 +549,12 @@ public class PluginManagerActivity extends AppCompatActivity implements PluginCa
         for (PluginCard card : mInstalledCards) {
             if (card.status == PluginCard.Status.ENABLED) enabled++;
         }
-        String summary = getString(R.string.plugins_summary_counts, mInstalledCards.size(), enabled);
+        String summary = getResources().getQuantityString(R.plurals.plugins_summary_installed,
+            mInstalledCards.size(), mInstalledCards.size()) + " · " +
+            getResources().getQuantityString(R.plurals.plugins_summary_active, enabled, enabled);
         if (!mBundledCards.isEmpty()) {
-            summary = summary + "\n" + getString(R.string.plugins_summary_bundled,
-                mBundledCards.size());
+            summary = summary + "\n" + getResources().getQuantityString(
+                R.plurals.plugins_summary_bundled, mBundledCards.size(), mBundledCards.size());
         }
         int updates = 0;
         for (PluginCard card : mRepositoryCards) {
@@ -665,7 +667,7 @@ public class PluginManagerActivity extends AppCompatActivity implements PluginCa
         new MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.plugins_confirm_install_title, card.name))
             .setMessage(getString(R.string.plugins_confirm_bundled_install_message, card.version,
-                card.type, getString(R.string.plugins_source_bundled), bundledSize(card.id),
+                card.type, getString(R.string.plugins_source_bundled), artifactSize(card.id),
                 permissionText(card.permissions), dependencyText(card.dependencies)))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.plugins_install, (dialog, which) ->
@@ -691,7 +693,7 @@ public class PluginManagerActivity extends AppCompatActivity implements PluginCa
         new MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.plugins_confirm_install_title, card.name))
             .setMessage(getString(R.string.plugins_confirm_install_message, card.version,
-                card.type, getString(R.string.plugins_source_repository), entry.size,
+                card.type, getString(R.string.plugins_source_repository), artifactSize(entry.size),
                 permissionText(card.permissions), dependencyText(card.dependencies)))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.plugins_install, (dialog, which) ->
@@ -720,7 +722,8 @@ public class PluginManagerActivity extends AppCompatActivity implements PluginCa
         new MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.plugins_confirm_update_title, card.name))
             .setMessage(getString(R.string.plugins_confirm_update_message, oldVersion,
-                card.version, card.type, getString(R.string.plugins_source_repository), entry.size,
+                card.version, card.type, getString(R.string.plugins_source_repository),
+                artifactSize(entry.size),
                 permissionText(card.permissions), dependencyText(card.dependencies)))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.plugins_update, (dialog, which) ->
@@ -785,6 +788,18 @@ public class PluginManagerActivity extends AppCompatActivity implements PluginCa
     private int bundledSize(String id) {
         PluginInstaller.BundledPlugin bundled = findBundled(id);
         return bundled == null ? 0 : bundled.archiveBytes.length;
+    }
+
+    /**
+     * Formats an artifact size as a plural-aware line, so "1 byte" and "2 bytes" both read
+     * correctly in the confirmation dialogs.
+     */
+    private String artifactSize(int bytes) {
+        return getResources().getQuantityString(R.plurals.plugins_artifact_size, bytes, bytes);
+    }
+
+    private String artifactSize(String bundledId) {
+        return artifactSize(bundledSize(bundledId));
     }
 
     @Nullable

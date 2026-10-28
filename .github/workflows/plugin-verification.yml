@@ -49,18 +49,16 @@ jobs:
 
       - name: Full app unit tests
         id: app-unit-tests
-        # Gradle may fail only so the XML gate can classify the known baseline failure.
         run: |
           set +e
           ./gradlew :app:testDebugUnitTest --console=plain
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
-      - name: Check app results against known baseline
+      - name: Check app unit test results
         run: |
           python3 scripts/check-unit-tests.py \
             app/build/test-results/testDebugUnitTest \
-            --allow-baseline \
-            --min-tests 56 \
+            --min-tests 59 \
             --gradle-exit "${{ steps.app-unit-tests.outputs.exit_code }}" \
             | tee -a "$GITHUB_STEP_SUMMARY"
 

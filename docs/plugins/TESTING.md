@@ -112,17 +112,19 @@ a device check.
 
 Command: the unit-test command above.
 
-Result on the current revision (2026-10-28): `56 tests completed, 1 failed`; `BUILD FAILED`.
-The failure is the same documented baseline below; the baseline gate passes with
-`--min-tests 56`.
+Result on the current revision (2026-10-28): `59 tests completed, 0 failed`;
+`BUILD SUCCESSFUL`. The baseline gate passes with `--min-tests 56`.
 
-- 54 plugin tests pass.
+- 57 plugin tests pass, including a Robolectric test that drives the real plugin
+  manager activity through install, confirmation, and persistence, and a test that
+  parses the shipped bundled payloads with the real host extra-keys and terminal
+  color parsers.
 - `TermuxActivityTest` passes.
-- `FileReceiverActivityTest` fails with the same pre-existing Robolectric teardown
-  NPE recorded in the clean baseline.
+- `FileReceiverActivityTest` passes.
 
-So the change introduces **zero new test failures**. The build is red only because the
-baseline is red for that one test on this host.
+The earlier revision had a single pre-existing failure in `FileReceiverActivityTest`
+from a Robolectric teardown NPE. It no longer reproduces, so the whole `:app` suite
+is green on this host.
 
 The manifest declaration and Java sources were also checked without the native build:
 
@@ -282,7 +284,7 @@ Tasks, in order, all required:
 | --- | --- |
 | Plugin tests | `./gradlew :app:testDebugUnitTest --tests 'com.termux.app.plugins.*'` |
 | Full app suite | `./gradlew :app:testDebugUnitTest` |
-| Baseline gate | `python3 scripts/check-unit-tests.py app/build/test-results/testDebugUnitTest --allow-baseline --min-tests 56 --gradle-exit "$EXIT"` |
+| Test gate | `python3 scripts/check-unit-tests.py app/build/test-results/testDebugUnitTest --min-tests 59 --gradle-exit "$EXIT"` |
 | Terminal emulator | `./gradlew :terminal-emulator:testDebugUnitTest` |
 | APK | `./gradlew :app:assembleDebug` |
 | APK verification | require the universal APK and write `sha256sums.txt` |
@@ -346,8 +348,10 @@ accessibility. Those remain steps 3–9 and 11 of §6.2 on a physical device.
 
 ### 9.3 Executed runs
 
-The workflow ran five times on branch `plugins-system`. The first four failed and each
-failure was diagnosed and fixed; the fifth is green end to end.
+The workflow ran on branch `plugins-system`. The first four runs of the earlier sample
+bundle failed and each failure was diagnosed and fixed; run 5 was green end to end.
+The replacement bundle and the rewritten manager UI were then verified by three more
+runs, whose two failures were both smoke-script assertion bugs rather than app bugs.
 
 | Run | Commit | Build job | Emulator job |
 | --- | --- | --- | --- |
@@ -356,23 +360,40 @@ failure was diagnosed and fixed; the fifth is green end to end.
 | [40112228690](https://github.com/xeriomy/termux-zen/actions/runs/40112228690) | `6e5f523a` | green | failed (sleeping screen + ANR) |
 | [40119142560](https://github.com/xeriomy/termux-zen/actions/runs/40119142560) | `1d6042b7` | green | failed (off-by-one in the script) |
 | [40122465847](https://github.com/xeriomy/termux-zen/actions/runs/40122465847) | `edae069a` | **green** | **green, ~1 minute** |
+| [40716833035](https://github.com/xeriomy/termux-zen/actions/runs/40716833035) | `26c204e8` | green | failed (smoke assertion: case-sensitive tab label) |
+| [40719421450](https://github.com/xeriomy/termux-zen/actions/runs/40719421450) | `6ad7d208` | green | failed (smoke assertion: uppercase dialog button) |
+| [40721528274](https://github.com/xeriomy/termux-zen/actions/runs/40721528274) | `02758899` | **green** | **green, ~45 seconds** |
 
-Final run, all steps successful. Measured from the run's own artifacts:
+The last run is the verification for the replacement bundle and the rewritten manager.
+Measured from the run's own artifacts:
 
 | Check | Result |
 | --- | --- |
-| Plugin unit tests (`--tests 'com.termux.app.plugins.*'`) | 46 tests, 0 failures, 0 skipped (earlier revision) |
-| Full `:app` suite | 48 tests, 0 failures, 0 skipped (earlier revision) |
-| Baseline gate | 48 executed ≥ `--min-tests 48`, 0 baseline failures (earlier revision) |
+| Plugin unit tests (`--tests 'com.termux.app.plugins.*'`) | 57 tests, 0 failures, 0 skipped |
+| Full `:app` suite | 59 tests, 0 failures, 0 skipped |
+| Test gate | 59 executed ≥ `--min-tests 59`, 0 failures, no quarantine |
 | `:terminal-emulator` unit tests | 145 tests, 0 failures |
-| `lintDebug` | 31 warnings, 0 errors |
+| `lintDebug` | 35 warnings, 0 errors |
 | Debug APK | 5 ABIs + universal assembled and checksummed |
 
 The emulator job PASSED install → first launch → bootstrap → terminal command →
-Settings → Plugins → bundled install → restart persistence, in about one minute.
-That run exercised the previous sample bundle; the current script checks the same core
-paths with the replacement Coding keys bundle and must be re-run on CI before its result
-is claimed for this revision.
+Settings → Plugins → Installed/Bundled/Repository tabs → bundled Coding keys install
+→ confirmation → restart persistence, in about 45 seconds.
+
+The two failures above were bugs in the smoke script, not in the app:
+
+- Run 40716833035 failed with "plugin manager did not open" even though the manager had
+  opened. The script matched the tab label with a case-sensitive grep over the `text`
+  attribute; Material's `TabLayout` renders tab titles uppercased in `text` and keeps
+  the original label in `content-desc`.
+- Run 40719421450 failed with "UI text not found: Install" even though the confirmation
+  dialog had opened and shown the expected content. Material renders dialog buttons
+  uppercased, so the dump contained `INSTALL` while the script looked for `Install`.
+
+Both helpers now match on `text` or `content-desc` and ignore case. The failure dumps
+were used to confirm this: the dialog dump contained the full confirmation text,
+including the version, type, source, artifact size, permissions, dependencies, and the
+"enabled after installation" note.
 
 Two of the four failures were environment causes worth recording:
 
@@ -395,8 +416,8 @@ Two of the four failures were environment causes worth recording:
 The `MissingSuperCall` lint error in run 1 was pre-existing (upstream
 `TermuxActivity.onBackPressed`) and is suppressed narrowly on that one method with a
 comment; it is not a plugin change and no test expectation was altered. The
-`FileReceiverActivityTest` Robolectric failure in §8 remains a known baseline item and
-is allowed by the gate's `--allow-baseline` flag.
+`FileReceiverActivityTest` Robolectric failure in §8 no longer reproduces: the whole
+`:app` suite is green, and the gate fails on any failure with no quarantine.
 
 APK SHA-256 values are in the `termux-debug-apk` artifact (`sha256sums.txt`); JUnit XML
 and the lint report are in `plugin-verification-reports`. The x86_64 APK the emulator

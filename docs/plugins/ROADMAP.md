@@ -87,19 +87,14 @@ Delivered in Phase 6:
   suite, `:terminal-emulator:testDebugUnitTest`, `:app:assembleDebug`, and
   `:app:lintDebug` on `ubuntu-24.04`, and uploads the APK when assembly succeeded,
   together with test/lint reports. The emulator job runs after a lint-only failure.
-- `scripts/check-unit-tests.py` permits only the known baseline failure, with its exact
-  message, and fails on anything else, a missing baseline test, or a reduced suite.
+- `scripts/check-unit-tests.py` fails on any unit-test failure and on a reduced suite.
+  It has no failure quarantine: the whole `:app` suite is green.
 - `scripts/emulator-smoke.sh` exercises install, first launch, one terminal command,
   Settings → Plugins, the disabled-repository state, bundled-plugin install, and restart
   persistence on an API 34 x86_64 emulator.
 
 Still open:
 
-- Fix `FileReceiverActivityTest` on JDK 17 (Robolectric teardown NPE) in a separate
-  change, then remove the baseline allowance from CI.
-- Run the workflow for the first time by pushing `plugins-system` (the branch name in
-  the trigger) or opening a pull request to `master`; keep any infrastructure failure
-  visible rather than treating it as a pass.
 - Add a pure-JVM test for `PluginRuntime` with a fake installer, covering user-config
   precedence and preset path containment without Android.
 - Add tests for the crash-consistency window and for registry quarantine recovery.

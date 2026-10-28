@@ -241,8 +241,18 @@
     <string name="plugins_catalog_title">Repository</string>
     <string name="plugins_summary_title">Plugin manager</string>
     <string name="plugins_summary_loading">Loading plugins…</string>
-    <string name="plugins_summary_counts">%1$d installed · %2$d active</string>
-    <string name="plugins_summary_bundled">%1$d bundled plugins</string>
+    <plurals name="plugins_summary_installed">
+        <item quantity="one">%1$d installed</item>
+        <item quantity="other">%1$d installed</item>
+    </plurals>
+    <plurals name="plugins_summary_active">
+        <item quantity="one">%1$d active</item>
+        <item quantity="other">%1$d active</item>
+    </plurals>
+    <plurals name="plugins_summary_bundled">
+        <item quantity="one">%1$d bundled plugin</item>
+        <item quantity="other">%1$d bundled plugins</item>
+    </plurals>
     <plurals name="plugins_summary_updates">
         <item quantity="one">%1$d update available</item>
         <item quantity="other">%1$d updates available</item>
@@ -314,10 +324,14 @@
     <string name="plugins_confirm_uninstall_title">Uninstall %1$s?</string>
     <string name="plugins_confirm_uninstall_message">This removes only the plugin registration and its installed files. Your terminal files, sessions, and settings are not touched. You can install the plugin again later.</string>
     <string name="plugins_confirm_install_title">Install %1$s?</string>
-    <string name="plugins_confirm_install_message">Version: %1$s\nType: %2$s\nSource: %3$s\nArtifact size: %4$d bytes\n\nPermissions:\n%5$s\n\nDependencies: %6$s\n\nThe plugin is installed disabled. Enable it from the Installed tab when you are ready. Explicit settings you configure in Termux always take precedence.</string>
-    <string name="plugins_confirm_bundled_install_message">Version: %1$s\nType: %2$s\nSource: %3$s\nArtifact size: %4$d bytes\n\nPermissions:\n%5$s\n\nDependencies: %6$s\n\nThis plugin is enabled after installation. If another plugin provides the same theme or extra-keys layout, it will be disabled. Explicit settings you configure in Termux always take precedence.</string>
+    <string name="plugins_confirm_install_message">Version: %1$s\nType: %2$s\nSource: %3$s\n%4$s\n\nPermissions:\n%5$s\n\nDependencies: %6$s\n\nThe plugin is installed disabled. Enable it from the Installed tab when you are ready. Explicit settings you configure in Termux always take precedence.</string>
+    <string name="plugins_confirm_bundled_install_message">Version: %1$s\nType: %2$s\nSource: %3$s\n%4$s\n\nPermissions:\n%5$s\n\nDependencies: %6$s\n\nThis plugin is enabled after installation. If another plugin provides the same theme or extra-keys layout, it will be disabled. Explicit settings you configure in Termux always take precedence.</string>
     <string name="plugins_confirm_update_title">Update %1$s?</string>
-    <string name="plugins_confirm_update_message">Update from version %1$s to %2$s.\nType: %3$s\nSource: %4$s\nArtifact size: %5$d bytes\n\nPermissions:\n%6$s\n\nDependencies: %7$s\n\nExplicit settings you configure in Termux always take precedence over this plugin.</string>
+    <string name="plugins_confirm_update_message">Update from version %1$s to %2$s.\nType: %3$s\nSource: %4$s\n%5$s\n\nPermissions:\n%6$s\n\nDependencies: %7$s\n\nExplicit settings you configure in Termux always take precedence over this plugin.</string>
+    <plurals name="plugins_artifact_size">
+        <item quantity="one">Artifact size: %1$d byte</item>
+        <item quantity="other">Artifact size: %1$d bytes</item>
+    </plurals>
     <string name="plugins_action_accessibility">%1$s %2$s</string>
     <string name="plugins_install_success">Plugin installed and enabled.</string>
     <string name="plugins_install_success_disabled">Plugin installed. Enable it from the Installed tab.</string>
