@@ -4,6 +4,7 @@ import android.content.res.AssetManager;
 
 import com.termux.shared.termux.extrakeys.ExtraKeysConstants;
 import com.termux.shared.termux.extrakeys.ExtraKeysInfo;
+import com.termux.terminal.TerminalColorScheme;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -52,6 +53,12 @@ public class BundledPayloadHostTest {
             for (int i = 0; i <= 15; i++) {
                 Assert.assertNotNull("missing color" + i + " in " + name, props.getProperty("color" + i));
             }
+
+            // The real host parser rejects unknown property names and colors it cannot parse by
+            // throwing, so a payload that only satisfies the plugin validator still fails here.
+            TerminalColorScheme scheme = new TerminalColorScheme();
+            scheme.updateWith(props);
+            Assert.assertNotNull("host must build a color scheme for " + name, scheme);
         }
     }
 
