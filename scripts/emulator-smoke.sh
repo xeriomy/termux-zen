@@ -29,15 +29,20 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+wanted = sys.argv[2].lower()
 try:
     root = ET.parse(sys.argv[1]).getroot()
 except Exception:
     raise SystemExit(0)
 for node in root.iter("node"):
-    if node.get("text") == sys.argv[2] or node.get("content-desc") == sys.argv[2]:
-        values = [int(value) for value in re.findall(r"-?\d+", node.get("bounds", ""))]
-        if len(values) == 4:
-            print((values[0] + values[2]) // 2, (values[1] + values[3]) // 2)
+    # Material renders button and tab labels uppercased, so the comparison
+    # ignores case and checks both the text and the content description.
+    values = [value for value in (node.get("text"), node.get("content-desc"))
+              if value and value.lower() == wanted]
+    if values:
+        bounds = [int(value) for value in re.findall(r"-?\d+", node.get("bounds", ""))]
+        if len(bounds) == 4:
+            print((bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2)
             break
 PY
 }
