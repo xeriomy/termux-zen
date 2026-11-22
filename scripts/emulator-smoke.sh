@@ -218,28 +218,24 @@ wake_device
 dismiss_anr
 ui_tap_text "Plugins" 3
 sleep 2
-ui_dump || die "could not dump the plugin manager UI"
-ui_has "Installed" || die "plugin manager did not open"
-ui_has "No plugins are installed." || die "fresh install already has plugins"
-say "plugin manager opened with zero installed plugins"
+ui_dump || die "could not dump the plugin hub UI"
+ui_has "Search plugins" || die "plugin hub did not open"
+ui_has "No plugins yet" || die "fresh install already has plugins"
+say "plugin hub opened with zero installed plugins"
 
-say "check repository state"
-ui_tap_text "Repository" 3
-sleep 1
-ui_dump || die "could not dump repository state"
-ui_has "No plugin repository is configured in this build." \
+say "open Get plugins"
+ui_tap_text "Get plugins" 3
+sleep 2
+ui_dump || die "could not dump the browse screen"
+ui_has "Bundled with Termux Zen" || die "bundled section is missing"
+ui_has "No repository is configured in this build. Bundled plugins and your own creations are always available." \
     || die "remote catalog is unexpectedly configured"
 say "remote catalog is disabled in this build"
 
-say "open bundled plugins"
-ui_tap_text "Bundled" 3
-sleep 1
-ui_dump || die "could not dump bundled plugin list"
-
-# The Material cards are taller than the emulator viewport, so uiautomator only
+# The Compose cards are taller than the emulator viewport, so uiautomator only
 # reports the laid-out children. Scroll through the list and assert each card as
-# it becomes visible instead of expecting every row in one dump. The bundled
-# assets are sorted by file name, so the cards appear in this order.
+# it becomes visible. Bundled assets are sorted by file name, so the cards appear
+# in this order.
 assert_bundled_card() {
     local wanted=$1
     for _ in $(seq 1 8); do
@@ -259,14 +255,14 @@ for _ in $(seq 1 4); do
     adb shell input swipe 540 700 540 1500 300 || true
     sleep 1
 done
-assert_bundled_card "Coding keys"
+assert_bundled_card "Coding Keys"
 assert_bundled_card "Paper Light"
 assert_bundled_card "Solarized Dark"
 screenshot bundled-plugins
 
-say "install Coding keys"
-# Return to the top of the list, then scroll just enough to reveal the first
-# card's action row. The button's accessibility label includes the plugin name.
+say "install Coding Keys"
+# Return to the top; the first Install button belongs to Coding Keys because the
+# bundled assets are sorted by file name (coding-keys.zip first).
 for _ in $(seq 1 6); do
     adb shell input swipe 540 700 540 1500 300 || true
     sleep 1
@@ -274,23 +270,23 @@ done
 install_coords=""
 for _ in $(seq 1 8); do
     ui_dump || true
-    install_coords=$(ui_coords "Coding keys Install")
+    install_coords=$(ui_coords "Install")
     [ -n "$install_coords" ] && break
     adb shell input swipe 540 1500 540 700 300 || true
     sleep 1
 done
-[ -n "$install_coords" ] || die "could not find the Coding keys install button"
-say "tap 'Coding keys Install' at $install_coords"
+[ -n "$install_coords" ] || die "could not find the Coding Keys install button"
+say "tap 'Install' at $install_coords"
 read -r ix iy <<< "$install_coords"
 adb shell input tap "$ix" "$iy"
 sleep 1
 ui_dump || die "could not dump install confirmation"
-ui_has "Install Coding keys?" || die "install confirmation did not appear"
-ui_tap_text "Install" 2
+ui_has "Install plugin?" || die "install confirmation did not appear"
+ui_tap_text "Install & activate" 2
 install_ok=0
 for _ in $(seq 1 20); do
     adb shell run-as "$PKG" cat files/plugins/registry.json > "$OUT/registry-after-install.json" 2>/dev/null || true
-    if grep -q 'com.termux.bundled.coding-keys' "$OUT/registry-after-install.json"; then
+    if grep -q 'com.xeriomy.zen.codingkeys' "$OUT/registry-after-install.json"; then
         install_ok=1
         break
     fi
@@ -300,6 +296,18 @@ done
 screenshot bundled-installed
 say "bundled plugin installed"
 
+say "plugin detail renders generated settings"
+ui_tap_text "Back" 2
+sleep 1
+ui_tap_text "Coding Keys" 3
+sleep 1
+ui_dump || die "could not dump the plugin detail screen"
+ui_has "ALL-CAPS key labels" || die "plugin settings were not rendered from the schema"
+ui_has "What it changes" || die "contribution previews are missing"
+screenshot plugin-detail
+ui_tap_text "Back" 2
+sleep 1
+
 say "restart persistence"
 adb shell am force-stop "$PKG"
 adb shell am start -W -n "$TERMUX_ACTIVITY" >/dev/null
@@ -308,8 +316,8 @@ adb shell am start -W -n "$SETTINGS_ACTIVITY" >/dev/null
 sleep 2
 ui_tap_text "Plugins" 3
 sleep 2
-ui_dump || die "could not dump the plugin manager UI after restart"
-ui_has "Coding keys" || die "installed plugin was not persisted after restart"
+ui_dump || die "could not dump the plugin hub after restart"
+ui_has "Coding Keys" || die "installed plugin was not persisted after restart"
 screenshot after-restart
 say "plugin registration persisted across restart"
 

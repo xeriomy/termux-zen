@@ -103,11 +103,21 @@
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
 
         <activity
-            android:name=".app.plugins.PluginManagerActivity"
+            android:name=".app.plugins.ui.PluginHubActivity"
             android:exported="false"
             android:label="@string/title_activity_plugin_manager"
             android:parentActivityName=".app.activities.SettingsActivity"
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${TERMUX_PACKAGE_NAME}.zen.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/zen_file_paths" />
+        </provider>
 
         <activity
             android:name=".shared.activities.ReportActivity"

@@ -64,7 +64,7 @@ public class SettingsActivity extends AppCompatActivity {
             Preference pluginsPreference = findPreference("plugins");
             if (pluginsPreference != null) {
                 pluginsPreference.setOnPreferenceClickListener(preference -> {
-                    context.startActivity(new Intent(context, com.termux.app.plugins.PluginManagerActivity.class));
+                    context.startActivity(new Intent(context, com.termux.app.plugins.ui.PluginHubActivity.class));
                     return true;
                 });
             }

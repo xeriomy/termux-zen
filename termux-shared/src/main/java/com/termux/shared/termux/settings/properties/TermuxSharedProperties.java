@@ -55,6 +55,27 @@ public abstract class TermuxSharedProperties {
         dumpInternalPropertiesToLog();
     }
 
+    /**
+     * Overlay external string values for keys that the user has not set in the properties file.
+     * Values are parsed exactly like file values; keys the user set explicitly always win, and
+     * the file itself is never modified. Intended for app-module extension systems.
+     *
+     * @param overrides The key/value pairs to overlay.
+     */
+    public synchronized void applyPropertyOverrides(@NonNull Map<String, String> overrides) {
+        if (mSharedProperties == null) return;
+        Properties userProperties = mSharedProperties.getProperties(true);
+        for (Map.Entry<String, String> entry : overrides.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (key == null || value == null) continue;
+            if (mPropertiesList != null && !mPropertiesList.contains(key)) continue;
+            if (userProperties != null && userProperties.containsKey(key)) continue;
+            Object internalValue = mSharedPropertiesParser.getInternalPropertyValueFromValue(mContext, key, value);
+            if (internalValue != null) mSharedProperties.setInternalProperty(key, internalValue);
+        }
+    }
+
 
 
 

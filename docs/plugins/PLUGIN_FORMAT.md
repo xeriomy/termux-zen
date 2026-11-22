@@ -1,212 +1,188 @@
-# Plugin Format — API v1
+# Plugin Format — API v2
 
-Status: format implemented by `PluginApi.VERSION = 1`.
-Audience: plugin authors and repository maintainers.
+Status: format implemented by `ZenApi.API_VERSION = 2`. Audience: plugin authors and
+repository maintainers. Supersedes the v1 manifest+payload format.
 
-A plugin is one ZIP artifact containing two JSON documents. The host reads the ZIP in
-memory, validates both documents, and writes only those two documents to app-private
-storage. Nothing in the archive is extracted or executed.
+A plugin is **one JSON document** (`plugin.json`). For distribution it is shipped as a ZIP
+containing that document and optionally a `LICENSE`. The host reads the ZIP in memory,
+validates the document, and stores only the document text in app-private storage. Nothing
+in an archive is extracted to disk or executed. The in-app editor produces the same format.
 
 ## 1. Artifact layout
 
 ```
 plugin.zip
-├── manifest.json      required, UTF-8 JSON, at most 32 KiB
-├── payload.json       required, UTF-8 JSON, at most 128 KiB
-└── LICENSE            optional, ignored by the app
+├── plugin.json      required, UTF-8 JSON, at most 256 KiB
+└── LICENSE          optional, ignored by the app
 ```
 
 Rules enforced by `PluginArchive`:
 
-- The artifact is at most 512 KiB.
-- Only the three names above are allowed. Directory entries, duplicate names, absolute
-  paths, `..`, backslashes, and unknown files are rejected.
-- Each entry expands to at most 128 KiB; the whole archive expands to at most 256 KiB.
-- The archive is never written to the filesystem, so ZIP path traversal and symlink
-  metadata have no target.
+- Artifact at most 512 KiB; must start with the ZIP local-header magic.
+- Only the two names above; directory entries, duplicates, absolute paths, `..`,
+  backslashes and unknown files are rejected.
+- Total expansion at most 256 KiB. The archive is never written to the filesystem.
 
-Bundled plugins in `app/src/main/assets/plugins/` follow the same format. They are
-trusted because they are covered by the APK signature, not because they are bundled.
+Bundled plugins in `app/src/main/assets/plugins/` follow the same format and are trusted
+because they are covered by the APK signature.
 
-## 2. `manifest.json`
+## 2. `plugin.json`
 
-Unknown fields are rejected at every level. Required fields must have the exact JSON
-type shown; numbers must be integers.
+Unknown fields are rejected at every level; required fields must have the exact JSON type;
+numbers must be integers.
 
 ```json
 {
-  "schemaVersion": 1,
-  "id": "com.example.termux.midnight",
+  "schemaVersion": 2,
+  "id": "com.example.midnight",
   "name": "Midnight",
   "version": "1.0.0",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "minCoreVersion": "0.118.0",
-  "type": "theme",
-  "capabilities": ["terminal.theme"],
-  "description": "A dark blue terminal palette.",
   "author": "Example",
-  "dependencies": ["com.example.termux.base@1.0.0"]
+  "description": "A dark blue palette with a configurable accent.",
+  "settings": [
+    { "id": "accent", "label": "Accent color", "type": "color", "default": "#6ba8ff" }
+  ],
+  "contributions": [
+    {
+      "type": "theme",
+      "colors": {
+        "foreground": "#e6e6e6",
+        "background": "#101820",
+        "cursor": "${settings.accent}"
+      }
+    }
+  ],
+  "dependencies": ["com.example.base@1.0.0"]
 }
 ```
 
 | Field | Required | Rules |
 | --- | --- | --- |
-| `schemaVersion` | yes | Must be `1` |
-| `id` | yes | Lowercase reverse-DNS, `^[a-z][a-z0-9]*(\.[a-z][a-z0-9_-]*)+$`, 3–128 characters |
-| `name` | yes | 1–64 characters, no control characters |
-| `version` | yes | Strict Semver 2.0.0, at most 64 characters |
-| `apiVersion` | yes | Must be exactly `1` |
-| `minCoreVersion` | no | Semver, default `0.0.0`; must not exceed the app version |
-| `type` | yes | `theme`, `extra_keys`, or `session_preset` |
-| `capabilities` | yes | Exactly one entry, equal to the capability for `type` |
-| `description` | no | At most 512 characters, no control characters |
-| `author` | no | At most 128 characters, no control characters |
-| `dependencies` | no | At most 16 entries; each is `id@minVersion` |
+| `schemaVersion` | yes | exactly `2` |
+| `id` | yes | lowercase reverse-DNS `^[a-z][a-z0-9]*(\.[a-z][a-z0-9_-]*)+$`, 3–128 chars |
+| `name` | yes | 1–64 chars, no control characters |
+| `version` | yes | strict Semver 2.0.0, ≤64 chars |
+| `apiVersion` | yes | exactly `2` |
+| `minCoreVersion` | no | semver, default `0.0.0`; hard floor against the app version |
+| `author` | no | ≤128 chars, no control characters |
+| `description` | no | ≤512 chars, no control characters |
+| `settings` | no | ≤32 entries, unique ids (see §3) |
+| `contributions` | yes | 1–16 entries (see §4); ≤1 theme, ≤1 extra_keys, ≤1 terminal_settings, ≤16 presets |
+| `dependencies` | no | ≤16 entries `id@minVersion`; no self, no duplicates |
 
-`capabilities` is not self-granted. `PluginPermissionManager` requires the single
-capability to be exactly the one the host maps to the type:
+Dependencies must already be installed (and enabled when the plugin will be enabled);
+cycles are rejected at install and enable. There is no auto-install.
 
-| `type` | Required capability | User-visible effect |
+## 3. Settings schema
+
+Each setting: `{ id, label, description?, type, default, … }` with
+`id` matching `^[a-z][a-z0-9_]{0,31}$`, `label` 1–64 chars, `description` ≤256 chars.
+
+| `type` | Extra fields | `default` rules |
 | --- | --- | --- |
-| `theme` | `terminal.theme` | Colors when the user has no `colors.properties` |
-| `extra_keys` | `terminal.extra_keys` | Extra-keys bar when the user has no `extra-keys` property |
-| `session_preset` | `sessions.preset` | A new-session menu entry for a directory under `$HOME` |
+| `toggle` | — | `"true"` or `"false"` |
+| `number` | `min?` (0), `max?` (1000000) | integer string within `[min, max]` |
+| `text` | `maxLength?` (128, 1–512) | ≤maxLength, no control characters |
+| `choice` | `options`: 2–16 `{value,label}`, unique values ≤64 chars | one of the option values |
+| `color` | — | `#RRGGBB` |
 
-Dependency rules:
+The host renders these generically (switch, slider, text field, chips, color picker) and
+stores user overrides in the registry record. Contribution string values may embed
+`${settings.<id>}` tokens; every token must reference a declared id. At apply time tokens
+are substituted and the resolved contribution is re-validated; a bad resolution makes the
+plugin contribute nothing for that generation (fail-closed).
 
-- The plugin cannot depend on itself.
-- Dependency IDs must be unique within a manifest.
-- The dependency must already be installed and meet `minVersion`.
-- Enabling also requires the dependency to be enabled.
-- Cycles are rejected before install and before enable.
-- Uninstalling a dependency disables its dependants; it does not delete their files.
+## 4. Contributions
 
-There is no dependency auto-install in v1. The repository UI lists dependency IDs so the
-user can install them first.
-
-## 3. `payload.json`
-
-`payload.json` must contain `schemaVersion: 1` and a `type` equal to the manifest type.
-Unknown fields are rejected. The remaining fields depend on the type.
-
-### 3.1 `theme`
+### 4.1 `theme`
 
 ```json
-{
-  "schemaVersion": 1,
-  "type": "theme",
-  "colors": {
-    "foreground": "#e6e6e6",
-    "background": "#101820",
-    "cursor": "#ffb000",
-    "color0": "#101820",
-    "color1": "#ff6b6b",
-    "color2": "#7bd88f",
-    "color3": "#ffd166",
-    "color4": "#6ba8ff",
-    "color5": "#c792ea",
-    "color6": "#5fd7d7",
-    "color7": "#d0d0d0",
-    "color8": "#4b5563",
-    "color9": "#ff8f8f",
-    "color10": "#a3e6b0",
-    "color11": "#ffe08a",
-    "color12": "#93bfff",
-    "color13": "#d7b3f5",
-    "color14": "#8ee8e8",
-    "color15": "#ffffff"
-  }
-}
+{ "type": "theme", "colors": { "foreground": "#e6e6e6", "background": "#101820", "cursor": "#ffb000", "color0": "#101820", "color15": "#ffffff" } }
 ```
 
-- `foreground` and `background` are required.
-- `cursor` and `color0` … `color15` are optional.
-- Each value is a string in `#RGB`, `#RRGGBB`, `#RRRGGGBBB`, or `#RRRRGGGGBBBB`
-  form, matching the host `TerminalColors` parser. `#RGBA`-style colors are not
-  accepted.
-- All colors are validated before the host applies them. A theme is applied only when
-  `~/.termux/colors.properties` does not exist.
+- `foreground` and `background` required; `cursor` and `color0`…`color15` optional.
+- Values: `#RGB`, `#RRGGBB`, `#RRRGGBBB`, `#RRRRGGGGBBBB` (host `TerminalColors` forms) or
+  settings tokens. Applied only when `~/.termux/colors.properties` is absent.
 
-### 3.2 `extra_keys`
+### 4.2 `extra_keys`
 
 ```json
 {
-  "schemaVersion": 1,
   "type": "extra_keys",
   "style": "default",
-  "keys": "[[\"ESC\",\"TAB\",\"CTRL\",\"ALT\"],[\"LEFT\",\"DOWN\",\"UP\",\"RIGHT\"]]"
+  "keys": [
+    [ {"key": "ESC"}, {"key": "TAB"}, {"key": "CTRL"}, {"key": "ALT"} ],
+    [ {"key": "LEFT"}, {"key": "DOWN"}, {"key": "UP"}, {"key": "RIGHT"},
+      {"macro": "echo $PWD\n", "display": "PWD"} ]
+  ]
 }
 ```
 
-- `keys` is a required JSON string of 1–8192 characters. It is parsed as an array of
-  rows, each row an array. A cell is either a key name string or an object with
-  exactly one of `key` or `macro`, optional `display`, and optional `popup` (another
-  button object).
-- `style` is optional; allowed values are `default`, `arrows-only`, `arrows-all`,
-  `all`, and `none`. Invalid values are rejected.
-- A `popup` may contain one button object, but the popup cannot contain another popup.
-  The host extra-keys renderer supports exactly one popup level.
-- The plugin payload validator checks this JSON shape. At render time the host builds
-  `ExtraKeysInfo`; if that final parse fails, the host falls back to the default
-  layout rather than applying a partial bar.
-- The plugin supplies keys only when `extra-keys` is absent from `termux.properties`,
-  and its style only when `extra-keys-style` is absent. Explicit user values always win.
+- `keys`: 1–6 rows, 1–12 cells per row, ≤64 cells total. A cell is an object with exactly
+  one of `key` (≤32 chars) or `macro` (≤512 chars), optional `display` (≤32 chars), and
+  optional `popup` (one nested cell; no popup inside a popup). No control characters.
+- `style`: `default`, `arrows-only`, `arrows-all`, `all`, `none` (or a settings token).
+- Applied only when the user has not set `extra-keys`; the plugin style only when the user
+  has not set `extra-keys-style`. If the host `ExtraKeysInfo` parse fails at render time,
+  the default layout is used.
 
-### 3.3 `session_preset`
+### 4.3 `session_preset`
 
 ```json
-{
-  "schemaVersion": 1,
-  "type": "session_preset",
-  "name": "Projects",
-  "workingDirectory": "projects"
-}
+{ "type": "session_preset", "name": "Projects", "workingDirectory": "projects" }
 ```
 
-- `name` is 1–48 characters with no control characters.
-- `workingDirectory` is optional and defaults to the home directory. It must be a
-  relative path inside `$HOME`: no leading `/` or `~`, no `..`, no backslashes, no
-  empty or `.` segments, and at most 256 characters.
-- At runtime the path is canonicalized, must still be under `$HOME`, and must already
-  exist as a directory. A missing directory produces no menu entry; if it disappears
-  later, selecting the entry shows an error instead of opening another directory.
-- A preset contains no command, script, shell text, or environment change. Selecting
-  it only creates a normal session in that directory after an explicit tap on the
-  terminal context menu.
+- `name` 1–48 chars; `workingDirectory` optional (default home), ≤256 chars, relative
+  inside `$HOME`: no leading `/` or `~`, no `..`, no backslashes, no empty/`.` segments.
+- At runtime the path is canonicalized, must stay under `$HOME` and exist as a directory;
+  otherwise the preset is not listed. Selecting it creates a normal session after an
+  explicit tap. No commands, scripts, or environment changes.
 
-## 4. Repository index
+### 4.4 `terminal_settings`
 
-The repository base URL is compiled into the APK as
-`TERMUX_PLUGIN_REPOSITORY_URL`; the pinned RSA public key is
-`TERMUX_PLUGIN_REPOSITORY_PUBLIC_KEY` (Base64 X.509, at least 2048 bits). Both are empty
-in this build, so the catalog is disabled. Bundled plugins remain available.
+```json
+{ "type": "terminal_settings", "values": { "terminal-cursor-style": "bar", "terminal-cursor-blink-rate": "500", "extra-keys-text-all-caps": "${settings.all_caps}" } }
+```
 
-The app downloads:
+Whitelisted keys and value grammars (mirroring `TermuxPropertyConstants`):
 
-- `<base>/index.json` — at most 256 KiB.
-- `<base>/index.json.sig` — at most 8 KiB, standard Base64 (whitespace ignored,
-  padding required), signature over the exact `index.json` bytes using
-  `SHA256withRSA`.
+| Key | Values |
+| --- | --- |
+| `bell-character` | `ignore` / `vibrate` / `beep` |
+| `terminal-cursor-style` | `block` / `underline` / `bar` |
+| `terminal-cursor-blink-rate` | `0` (off) or `100`–`2000` |
+| `terminal-margin-horizontal` | `0`–`100` (dp) |
+| `terminal-margin-vertical` | `0`–`100` (dp) |
+| `terminal-transcript-rows` | `100`–`50000` |
+| `extra-keys-text-all-caps` | `true` / `false` |
 
-TLS is required, but it is not treated as publisher authenticity. Only a signature
-that verifies against the pinned key is accepted. Redirects are disabled; a redirect
-response fails the request.
+Applied only for keys the user has not set in `termux.properties`; the file is never
+modified. Multiple enabled providers merge in plugin-id order (later wins).
 
-Index schema:
+## 5. Repository index
+
+Base URL and pinned RSA public key are compiled in as `TERMUX_PLUGIN_REPOSITORY_URL` /
+`TERMUX_PLUGIN_REPOSITORY_PUBLIC_KEY` (both empty in this build → catalog disabled).
+The app downloads `<base>/index.json` (≤256 KiB) and `<base>/index.json.sig` (≤8 KiB,
+standard Base64, whitespace ignored). TLS is required but is not publisher authenticity:
+only a `SHA256withRSA` signature verifying against the pinned key (≥2048-bit RSA) is
+accepted. Redirects are refused.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "repository": "Example plugins",
   "plugins": [
     {
-      "id": "com.example.termux.midnight",
+      "id": "com.example.midnight",
       "name": "Midnight",
       "version": "1.0.0",
-      "type": "theme",
-      "description": "A dark blue terminal palette.",
+      "description": "A dark blue palette.",
       "minCoreVersion": "0.118.0",
       "dependencies": [],
+      "types": ["theme"],
       "url": "https://plugins.example/midnight-1.0.0.zip",
       "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "size": 1234
@@ -215,77 +191,60 @@ Index schema:
 }
 ```
 
-- Unknown fields are rejected; `plugins` is limited to 500 entries.
-- IDs and versions are validated with the same rules as manifests.
-- `url` must start with `https://`; it may point at a different host, because the
-  signed index is the authority for the artifact location.
-- `sha256` is 64 hexadecimal characters; `size` is 1–524288 bytes.
-- After download the app checks the size and SHA-256, then validates the artifact as a
-  plugin. The installer repeats both checks before committing and also requires the
-  artifact manifest's ID, version, and type to match the signed index entry.
-- `minCoreVersion` is compared to the app's `versionName`; incompatible entries are
-  shown as unavailable rather than installed.
+≤500 entries; unknown fields rejected; ids/versions validated as in manifests; `url` must
+be `https://`; `sha256` is 64 hex chars; `size` 1–524288. After download the app checks
+size + SHA-256, validates the artifact, and requires the document's id/version to match
+the signed entry exactly. `types` is display-only. Incompatible entries are shown but
+cannot be installed.
 
-The index signature protects the catalog and the artifact hashes. It does not provide
-revocation, expiry, or a transparency log; see `THREAT_MODEL.md`.
-
-## 5. Installed state
-
-Only validated documents are stored:
+## 6. Installed state
 
 ```
 <getFilesDir()>/plugins/
 ├── registry.json
-├── installed/<id>/<version>/{manifest.json,payload.json}
-└── .staging/                 cleared at startup and after each install
+├── installed/<id>/<version>/plugin.json
+└── .staging/
 ```
 
 `registry.json`:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "plugins": [
     {
-      "id": "com.example.termux.midnight",
+      "id": "com.example.midnight",
       "version": "1.0.0",
-      "type": "theme",
       "enabled": true,
-      "source": "repository",
-      "manifestSha256": "…",
-      "payloadSha256": "…"
+      "source": "local",
+      "sha256": "…",
+      "settings": { "accent": "#ff6b6b" }
     }
   ]
 }
 ```
 
-- `source` is `bundled` or `repository`.
-- The SHA-256 values identify the exact installed documents. They are rechecked on
-  every load; modified files make the plugin invalid and it contributes nothing.
-- The registry is written to `registry.json.tmp`, fsynced, then renamed over
-  `registry.json`. An unreadable registry is moved to `registry.json.corrupt-<time>`
-  instead of being overwritten on the next save.
-- Uninstall removes only `installed/<id>` and the registry record. It never edits
-  `$HOME`, `$PREFIX`, `.termux/termux.properties`, `colors.properties`, fonts, or the
-  bootstrap.
+`source` is `bundled`, `repository`, `local` (created/duplicated in-app) or `import` (user
+ZIP). `local` and `import` plugins are editable in place; bundled/repository plugins can be
+duplicated into an editable `local` copy (`<id>.copy`, `<id>.copy2`, …). The SHA-256 is
+rechecked on every load; modified files make the plugin invalid. Registry writes are
+atomic; unreadable registries are quarantined, never silently overwritten.
 
-## 6. Versioning
+## 7. Versioning and migration
 
-- `apiVersion` is exact, not a range. A v2 plugin is rejected by a v1 app.
-- Adding a type, capability, or incompatible payload field requires a new API version
-  and host code.
-- `minCoreVersion` is a hard floor. The app rejects a plugin that needs a newer core.
-- Updates with a lower version are rejected. The same version may be reinstalled;
-  updates keep the plugin's enabled state and delete the old version directory after
-  the registry commit succeeds.
+- `apiVersion` is exact, not a range. Updates may not lower the version; equal version is a
+  reinstall. Updates keep the enabled state and compatible setting overrides.
+- v1 plugins (manifest.json + payload.json) are migrated once at startup: the single v1
+  type becomes one contribution, v1 string key cells become `{ "key": … }` objects,
+  enabled state and source survive. The old registry is kept as `registry.v1.bak`.
 
-## 7. Minimal author checklist
+## 8. Author checklist
 
-1. Use a unique lowercase reverse-DNS ID and a Semver version.
-2. Declare exactly one supported type and its matching capability.
-3. Validate the payload against the section for that type.
-4. Put only `manifest.json`, `payload.json`, and optionally `LICENSE` in the ZIP.
-5. If publishing, put the artifact hash and size in a signed index; never rely on TLS
-   or a bare checksum for publisher authenticity.
-6. Test on a device with no `colors.properties` and no explicit `extra-keys` if you
+1. Unique lowercase reverse-DNS id, semver version, `apiVersion: 2`, `schemaVersion: 2`.
+2. One to sixteen contributions; at most one each of theme/extra_keys/terminal_settings.
+3. Declare settings for anything the user should tune; reference them with `${settings.id}`.
+4. Validate locally: the in-app editor's Advanced JSON mode runs the host's exact parser.
+5. Ship only `plugin.json` (+ optional `LICENSE`) in the ZIP.
+6. Publishing: put the artifact hash and size in a signed index; TLS alone is not authenticity.
+7. Test with no `colors.properties` and no explicit `extra-keys`/terminal properties if you
    want to see the contribution; user configuration intentionally wins.

@@ -50,31 +50,35 @@ The core [Termux](https://github.com/termux/termux-app) app comes with the follo
 
 ## Declarative Plugins (this fork)
 
-This fork adds an optional **declarative** plugin system, separate from the companion
-apps above. A plugin is a ZIP containing a manifest and a payload for one of:
-a terminal theme, an extra-keys layout, or a session preset. Catalog artifacts are
-authenticated by a signed index; bundled plugins are covered by the APK signature.
-Plugins contain no
-Java/Kotlin/DEX/native code or scripts and cannot execute commands. They are managed
-under **Settings → Plugins** and are stored only in the app's private files directory.
+This fork adds an optional **declarative plugin system (API v2)**, separate from the
+companion apps above. A plugin is a single JSON document (shipped as a small ZIP) that
+can combine any of: a terminal **theme**, an **extra-keys** layout, **session presets**,
+and safe **terminal settings** (cursor, bell, margins, scrollback). Plugins can also
+declare their own **user settings** — toggles, numbers, text, choices and colors — which
+the app renders automatically and wires into the plugin's values.
+
+Everything is data. Plugins contain no Java/Kotlin/DEX/native code or scripts and cannot
+execute commands. Under **Settings → Plugins** you can install, enable/disable, configure,
+**create your own plugins with a built-in editor** (theme color picker, key-layout builder,
+settings designer, or raw JSON), duplicate any plugin into an editable copy, and
+import/export plugins as ZIP files. Catalog artifacts are authenticated by a signed index;
+bundled plugins are covered by the APK signature. Plugin state lives only in the app's
+private files directory.
 
 User configuration always wins: a plugin theme applies only when
-`~/.termux/colors.properties` is absent, and plugin extra keys apply only when
-`extra-keys` is not set in `termux.properties`. Uninstalling a plugin removes only its
-own files and registration.
+`~/.termux/colors.properties` is absent, plugin extra keys apply only when `extra-keys`
+is not set in `termux.properties`, and plugin terminal settings apply only to keys you
+have not set yourself. Uninstalling a plugin removes only its own files and registration.
 
-No repository URL or signing key is configured in this build; Solarized Dark,
-Paper Light, and Coding keys are bundled with the app and can be installed from the
-manager. Bundled plugins are not installed automatically. The format, threat
-model, test results, current limitations, and build prerequisites are in
-[`docs/plugins/README.md`](docs/plugins/README.md).
+No repository URL or signing key is configured in this build; Solarized Dark, Paper Light
+and Coding Keys are bundled and can be installed from **Get plugins**. Bundled plugins are
+not installed automatically. The format, threat model, test results, limitations and build
+prerequisites are in [`docs/plugins/README.md`](docs/plugins/README.md).
 
-Plugin API v1 is an MVP. The aarch64 development host cannot build the APK because
-Google's AAPT2/NDK toolchains are x86_64-only. An x86_64 CI workflow builds and
-tests it, and its green runs cover this bundle and the rewritten manager, including
-an emulator smoke job that installs a bundled plugin and checks that it survives a
-restart. Device verification of the manual steps is still required. See
-[`docs/plugins/TESTING.md`](docs/plugins/TESTING.md).
+The aarch64 development host cannot assemble the APK (Google's AAPT2 is x86_64-only), but
+the pure-JVM plugin core is unit-tested locally and the full Kotlin/Compose sources are
+compile-checked here. An x86_64 CI workflow builds the APK, runs the whole test suite,
+lint, and an emulator smoke job. See [`docs/plugins/TESTING.md`](docs/plugins/TESTING.md).
 ##
 
 

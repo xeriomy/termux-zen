@@ -458,6 +458,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void reloadProperties() {
         mProperties.loadTermuxPropertiesFromDisk();
 
+        // Declarative terminal_settings contributions apply only to keys the user has not set.
+        PluginRuntime pluginRuntime = PluginManager.getRuntime();
+        if (pluginRuntime != null) {
+            java.util.Map<String, String> terminalSettings = pluginRuntime.getTerminalSettings();
+            if (!terminalSettings.isEmpty()) mProperties.applyPropertyOverrides(terminalSettings);
+        }
+
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onReloadProperties();
     }

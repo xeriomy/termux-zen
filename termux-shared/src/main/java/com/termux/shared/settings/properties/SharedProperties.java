@@ -184,6 +184,22 @@ public class SharedProperties {
     }
 
     /**
+     * Set the internal value for a key in the in-memory cache, overriding the value loaded
+     * from the properties file. The raw file cache is not modified, so user-file precedence
+     * checks still see only what the user wrote. Intended for host-side extension overlays.
+     *
+     * @param key The key whose internal value should be overridden.
+     * @param value The internal value. {@code null} values are ignored.
+     */
+    public void setInternalProperty(String key, Object value) {
+        synchronized (mLock) {
+            if (key == null || value == null) return;
+            if (mMap == null) mMap = new HashMap<>();
+            mMap.put(key, value);
+        }
+    }
+
+    /**
      * Get the {@link #mMap} object for the {@link #mPropertiesFile}. A call to
      * {@link #loadPropertiesFromDisk()} must be made before this.
      *

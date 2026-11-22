@@ -1,298 +1,181 @@
-# Plugin System — Architecture
+# Plugin System — Architecture (API v2)
 
-Status: implementation design for the initial release (plugin API v1).
-Audience: Termux app maintainers and plugin authors.
+Status: implementation design for the v2 rewrite. Audience: maintainers and plugin authors.
+Supersedes the v1 MVP architecture (one fixed type per plugin, no settings, XML manager).
 
 ## 1. Goals and non-goals
 
 Goals:
 
 - Keep the app fully functional with zero installed or enabled plugins.
-- Install, enable, disable, update, and uninstall declarative plugins.
-- Give every plugin a stable ID, version, API version, minimum core version, type, declared
-  capabilities, and dependencies.
-- Apply contributions through explicit, reversible host extension points.
+- Let anyone **add, edit, remove** plugins: install from bundled/catalog/file, create and
+  edit plugins in-app, duplicate any plugin into an editable copy, export/share, uninstall.
+- Let every plugin declare **user settings** that the host renders and validates generically.
+- Let one plugin combine **multiple typed contributions** (theme + keys + presets + terminal
+  settings), instead of v1's single fixed type.
+- Enable/disable with deterministic dependency cascades and exclusive-provider rules.
 - Verify catalog metadata and artifact integrity before anything is committed.
 - Never load downloaded bytecode, JARs, DEX files, native code, or scripts.
 - Preserve user data: plugin operations never edit `$HOME`, `termux.properties`,
-  `colors.properties`, `font.ttf`, or the bootstrap.
+  `colors.properties`, `font.ttf`, or the bootstrap. User configuration always wins.
 
-Non-goals for v1:
+Non-goals for v2:
 
-- Native Android companion-app plugins.
-- Arbitrary executable extensions or shell-script plugins.
-- Automatic installation of dependencies.
-- Multiple simultaneous themes or extra-key layouts.
-- Cross-app styling visibility (Termux:Styling and companion apps do not see plugin themes).
+- Executable extensions of any kind (security boundary, see THREAT_MODEL.md).
+- Native Android companion-app plugins (those remain separate APKs).
+- Automatic dependency installation.
+- Font plugins (binary payloads need a separate design).
 - A hosted catalog service; the repository is a signed static index.
 
 ## 2. Module and package layout
 
-All new code lives in the `:app` module under `com.termux.app.plugins`. `termux-shared` is not
-changed: its `com.termux.shared.termux.plugins` package already means companion-app /
-`RUN_COMMAND` plumbing and must not be confused with declarative plugins.
+Core and UI live in `:app`. The core is pure JVM (org.json + java.io + java.security +
+Guava BaseEncoding) so it is unit-testable without Android; only `PluginManager` and
+`PluginExporter` touch Android APIs. `termux-shared` gains one small, plugin-agnostic
+addition: a property-overlay API used by the `terminal_settings` extension point
+(`SharedProperties.setInternalProperty`, `TermuxSharedProperties.applyPropertyOverrides`).
+Its existing `com.termux.shared.termux.plugins` package remains companion-app plumbing.
 
 ```
 com.termux.app.plugins
-├── PluginApi                    # API version, types, capabilities, semver
-├── PluginJson                   # strict JSON helpers
-├── PluginManifest               # parsed, validated immutable manifest
-├── PluginPayload                # parsed, validated type-specific payload
-├── PluginArchive                # bounded in-memory ZIP reader
-├── PluginSignatureVerifier      # SHA256withRSA verification, Base64, key size
-├── PluginRepositoryClient       # HTTPS index/artifact fetch, signature check
-├── PluginRegistry               # installed records, atomic persistence
-├── PluginRuntime                # active contributions, fail-closed reload
-├── PluginPermissionManager      # capability/type enforcement and labels
-├── PluginInstaller              # validation, staging, commit, rollback, uninstall
-├── PluginManager                # app-scoped facade and initialization
-├── PluginManagerActivity        # Material tabs, cards, search, and confirmations
-├── PluginCard                   # immutable card model for installed/available plugins
-└── PluginCardAdapter            # RecyclerView binding and action callbacks
+├── ZenApi                 # API v2 constants, grammars, bounds, exclusive types
+├── Semver                 # strict Semver 2.0.0 parse + precedence
+├── PluginException        # single user-safe error type
+├── PluginJson             # strict org.json helpers (types, bounds, unknown keys)
+├── PluginModels           # immutable manifest/contribution/settings model
+├── PluginParser           # strict parse + canonical serialization; terminal-settings schema
+├── PluginSettings         # effective values, ${settings.id} resolution, re-validation
+├── PluginArchive          # bounded in-memory ZIP read/write
+├── PluginStore            # registry + installed documents, atomic writes, quarantine
+├── PluginRuntime          # active contributions, fail-closed reload, generation counter
+├── PluginInstaller        # install/update/uninstall/enable/disable/settings/duplicate
+├── PluginRepository       # signed catalog client (HTTPS, pinned RSA key, no redirects)
+├── PluginMigration        # best-effort v1 → v2 conversion
+├── PluginManager          # app-scoped facade, single executor, main-thread results
+└── PluginExporter         # shareable ZIP into cache (FileProvider)
+
+com.termux.app.plugins.ui   # Kotlin + Jetpack Compose (Material 3)
+├── PluginHubActivity      # single activity; replaces the v1 XML tab manager
+├── HubController          # navigation + state + async operations
+├── EditorDraft            # mutable editor model, validates via parser round-trip
+├── Screens                # installed list, browse (bundled + catalog), detail + settings
+├── EditorScreen           # metadata, contribution editors, settings designer, raw JSON
+├── Components             # rows, chips, previews, settings form, HSV color picker
+├── ZenTheme / ZenStrings  # dark terminal-matching theme; UI strings
 ```
 
-There is no separate `Semver`, catalog model, dependency resolver, or package class:
-those responsibilities fit in `PluginApi`, `PluginRepositoryClient`, and `PluginInstaller`.
-The UI keeps its display model separate from persistence and validation. See
-`ROADMAP.md` before splitting it further.
-
-The UI is a new activity because the specification requires catalog and per-plugin
-operation views, not a single settings switch. The settings root gains one entry that
-opens it.
+Compose is pinned to BOM **2025.10.00** (ui 1.9.3 / material3 1.4.0): the newest line whose
+UI still supports **minSdk 21**, preserving Termux's Android 5/6 support. Kotlin 2.4.21 with
+the Kotlin-bundled Compose compiler plugin; activity-compose 1.10.1; coroutines 1.11.0.
 
 ## 3. Storage
 
-Plugin state is app-private:
-
 ```
 <context.getFilesDir()>/plugins/
-├── registry.json                 # installed records, atomic writes
-├── installed/<plugin-id>/<version>/
-│   ├── manifest.json             # validated manifest exactly as installed
-│   └── payload.json              # validated type-specific payload
-└── .staging/                     # incomplete downloads/commits, cleared at startup
+├── registry.json                 # schemaVersion 2 records, atomic writes
+├── registry.v1.bak               # kept when a v1 registry was migrated
+├── installed/<plugin-id>/<version>/plugin.json
+└── .staging/                     # cleared at startup and around commits
 ```
 
-- The directory is derived from `getFilesDir()`, never a hard-coded path.
-- Plugin IDs and versions are validated against path-safe grammars before being used as path
-  segments, so neither can contain `/`, `..`, or a platform separator. Deletion additionally
-  resolves canonical paths and refuses to leave the plugin storage root.
+- IDs and versions are validated against path-safe grammars before use as path segments;
+  deletion additionally checks canonical-path containment.
+- Registry records carry `enabled`, `source` (`bundled|repository|local|import`), the
+  SHA-256 of the installed document, and the user's **settings overrides** (string-encoded).
+- Writes are tmp-file + fsync + rename. An unreadable registry is quarantined as
+  `registry.json.corrupt-<time>-<reason>` before continuing with empty state.
 - No plugin operation writes to `$HOME`, `$PREFIX`, `.termux`, or shared preferences.
-  Therefore no user configuration needs a backup: nothing is modified.
-- An unreadable `registry.json` is renamed to `registry.json.corrupt-<time>` before the app
-  continues with empty state, so the next save cannot destroy the evidence.
-- Uninstall deletes only `installed/<plugin-id>` and the registry record. Orphaned version
-  directories from an interrupted update may remain on disk but are never loaded unless the
-  registry points at them; they are harmless and are removed by the next install cleanup.
-  A process kill between the directory rename and the registry commit can leave a
-  `<version>.old-<time>` directory; the plugin then fails hash validation and contributes
-  nothing.
 
 ## 4. Lifecycle
 
-### 4.1 Application startup
+Startup (`TermuxApplication.onCreate` → `PluginManager.init`): create directories, clear
+staging, migrate a v1 registry if present (best-effort, per-plugin), reload the runtime,
+clean orphaned version directories. No network at startup. The app continues even if all
+plugin state is invalid.
 
-`TermuxApplication.onCreate` calls `PluginManager.init(applicationContext)` after shared
-properties and the shell manager are initialized, before the theme is applied. Initialization:
+Runtime reload (fail-closed, per plugin): hash check → strict parse → registry identity
+match → `minCoreVersion` ≤ app version → dependencies installed/enabled/version →
+settings resolution + contribution re-validation → cycle detection. A failing plugin
+contributes nothing this generation and is reported `Invalid(reason)`; the failure is not
+persisted as a disable. Exclusive types (`theme`, `extra_keys`): first valid provider in
+id order wins; later providers are `Overridden(byId)`. `terminal_settings` merge in id
+order (later wins). Presets are canonicalized under `$HOME` and listed only when the
+directory exists. Each reload bumps a generation counter; `TermuxActivity.onResume`
+re-applies styling when it changed while another activity was on top.
 
-1. Creates the storage directories.
-2. Loads `registry.json`. A corrupt file is renamed to `registry.json.corrupt-<time>` and
-   an empty in-memory registry is used; the app never crashes and never silently overwrites
-   the old file.
-3. Clears `.staging`.
-4. Reloads the runtime: for each enabled record, re-reads and validates its files against the
-   registry hashes, checks API/core compatibility and dependencies, then enforces the
-   capability/type mapping. A plugin that fails any check is skipped for this generation and
-   contributes nothing. The failure is not persisted as a disable, so a later repair can
-   activate it again.
-5. The app continues even if all plugin state is invalid.
+Install/update: validate document (and signed-catalog identity when applicable) → check
+downgrade/dependencies/cycles → exclusive swap when enabling (which may never disable the
+candidate's own dependency) → stage + commit directory → registry save (rollback the
+directory on failure) → delete old version → reload. Updates preserve the enabled state
+and keep setting overrides whose ids are still declared. Fresh bundled installs enable;
+repository/import installs disable; local saves preserve the record's state.
 
-No network access and no catalog refresh happen at startup. The repository catalog is
-fetched only when the user opens the **Repository** tab (and only if a URL and key are
-configured). Bundled plugins are listed in the **Bundled** tab and installed only after
-an explicit per-plugin confirmation.
+Enable/disable: enable re-validates everything and swaps exclusive providers; disable
+cascades to enabled dependants transitively. Both are idempotent.
 
-### 4.2 Enable
-
-1. Read the installed package from disk and validate it again (defends against on-disk
-   tampering and core upgrades).
-2. Check API/core compatibility.
-3. Check every declared dependency is installed, enabled, and meets its minimum version.
-4. Reject a dependency cycle and a dependency that would be replaced as the active
-   exclusive provider (`theme`, `extra_keys`).
-5. Enforce the capability/type mapping.
-6. Set `enabled=true` and disable other enabled providers of the same exclusive type,
-   including their dependants.
-7. Persist the registry. If persistence fails, reload the old registry; the runtime is
-   only refreshed after a successful action.
-
-Enable is idempotent: enabling an already enabled plugin repeats validation and leaves one
-record. Disable is idempotent for an already disabled plugin.
-
-### 4.3 Disable
-
-1. Set `enabled=false`.
-2. Disable every enabled plugin that depends on it, transitively, so no record claims to
-   be active while its dependency is gone.
-3. Persist the registry. If persistence fails, reload the old registry.
-
-There is no refusal path: disabling a dependency is allowed and disables its dependants.
-The UI shows the resulting states.
-
-### 4.4 Install
-
-1. Validate the source (`bundled` or `repository`), optional expected size and SHA-256, the
-   archive, manifest, payload, and API/core compatibility. Repository installs also pass the
-   signed catalog entry's ID, version, and type; the artifact manifest must match them exactly,
-   so a signed catalog can never install a different plugin than the one the user confirmed.
-2. Reject a version lower than the installed version, a missing dependency, a dependency
-   cycle, or, when the plugin will be enabled, a dependency that is disabled or an
-   exclusive conflict. An update keeps the installed enabled state, so an enabled plugin
-   cannot be updated into a state whose dependencies are disabled.
-3. Write only the validated JSON documents to a temporary directory under
-   `plugins/.staging`, fsync them, then rename the directory to
-   `installed/<id>/<version>`.
-4. Add a registry record and persist. If persistence fails, delete the new directory and
-   restore any directory moved aside; the old registry is reloaded.
-5. The UI installs bundled plugins with `enabled=true` after a confirmation that explicitly
-   says the plugin will become active. Repository plugins are installed with `enabled=false`;
-   the user enables them from the Installed tab. The installer API supports both behaviors.
-
-### 4.5 Update
-
-A package with the same ID replaces the installed version. The new version must not be lower;
-an equal version is a reinstall.
-
-1. Validate the new package, dependencies, dependency cycles, and exclusive conflicts.
-2. Write the new version directory atomically. If the target version directory already
-   exists, rename it to `<version>.old-<time>` first.
-3. Update the registry record, preserving the existing enabled state.
-4. If persistence fails, delete the new directory and restore the old directory; the old
-   registry is reloaded.
-5. Delete the old version directory and any other version left in the plugin directory only
-   after the registry commit succeeds.
-
-A process kill between steps 2 and 3 leaves the registry pointing at the old hash while the
-directory contains the new files. The plugin fails validation and is skipped; the old copy
-remains under `<version>.old-<time>` for manual recovery. This window is documented in the
-threat model.
-
-### 4.6 Uninstall
-
-1. Disable the plugin and any enabled dependants, then remove the registry record and persist.
-   If persistence fails, reload the old registry and keep the files.
-2. Delete `installed/<id>` recursively, with canonical-path containment. Failure to delete is
-   reported; the plugin is already unregistered, so it cannot be loaded.
-3. No user file, setting, or other plugin directory is touched.
+Uninstall: cascade-disable dependants, remove the record, persist, then delete only
+`installed/<id>`. Files that cannot be deleted are reported; the plugin is already
+unregistered and can never load.
 
 ## 5. Extension points
 
-All contributions are declarative and pull-based. There is no event bus and no plugin-provided
-callback code. Pulling keeps ordering and disposal deterministic.
+| Contribution | Host hook | Precedence |
+| --- | --- | --- |
+| `theme` | `checkForFontAndColors` overlays validated colors into in-memory `Properties` | user `colors.properties` wins |
+| `extra_keys` | `TermuxTerminalExtraKeys.setExtraKeys` uses plugin JSON/style | user `extra-keys` / `extra-keys-style` win |
+| `session_preset` | terminal context menu → `addNewSession(false, name, dir)` | explicit tap required; missing dir → no entry |
+| `terminal_settings` | `TermuxActivity.reloadProperties` → `applyPropertyOverrides` | any key the user set in `termux.properties` wins |
 
-| Type | Capability | Contribution | Host hook |
-| --- | --- | --- | --- |
-| `theme` | `terminal.theme` | Color map (`foreground`, `background`, `cursor`, `color0`..`color15`) | `checkForFontAndColors` overlays the map into the in-memory `Properties` before `TerminalColorScheme.updateWith` |
-| `extra_keys` | `terminal.extra_keys` | JSON array of rows of key names | `TermuxTerminalExtraKeys` uses it only when the user has not set `extra-keys` |
-| `session_preset` | `sessions.preset` | Session name and a working directory under `$HOME` | New entry in the terminal pop-up menu; opening requires an explicit user tap |
+`terminal_settings` whitelist (values validated at parse and after resolution):
+`bell-character` (ignore/vibrate/beep), `terminal-cursor-style` (block/underline/bar),
+`terminal-cursor-blink-rate` (0 or 100–2000), `terminal-margin-horizontal` (0–100),
+`terminal-margin-vertical` (0–100), `terminal-transcript-rows` (100–50000),
+`extra-keys-text-all-caps` (true/false). The overlay only touches the in-memory internal
+value map; the raw user-file cache is unchanged, so precedence checks stay honest.
+The overlay applies on interactive-terminal property reloads; service-only paths
+(e.g. `RUN_COMMAND`) keep file/default values.
 
-### 5.1 Theme precedence and reversibility
+Settings tokens: any contribution string value may embed `${settings.<id>}`. Tokens must
+reference declared settings (checked at parse); values are substituted at runtime reload
+and the resolved contribution is re-validated. A bad resolution fails the whole plugin
+closed for that generation.
 
-- If `~/.termux/colors.properties` exists, the user's file wins and the plugin theme is inert.
-  The manager still shows the plugin as enabled; it does not claim the theme is active.
-- If the file is absent, an enabled theme plugin's validated colors are applied to an
-  in-memory `Properties` object. No file is created or modified.
-- Disabling the plugin makes the next styling load start from an empty property set, restoring
-  the built-in defaults.
-- All colors are validated before `TerminalColorScheme.updateWith` is called, so a malformed
-  plugin cannot leave a partially applied palette.
+## 6. UI
 
-### 5.2 Extra keys precedence and reversibility
+`PluginHubActivity` (Compose, Material 3, dark terminal-matching theme):
 
-- An explicit non-empty `extra-keys` value in `termux.properties` always wins.
-- An explicit `extra-keys-style` value also wins; the plugin style is used only when the
-  user did not set one.
-- Otherwise, an enabled `extra_keys` plugin supplies the JSON used to build `ExtraKeysInfo`.
-- Otherwise, the existing default two-row layout is used.
-- Enabling or disabling recreates the activity (or reloads it on resume) so the toolbar is
-  rebuilt; the underlying user property is never changed.
+- **Installed**: searchable list with enable switches, status chips (Active / Disabled /
+  Invalid + reason / Overridden), type chips; FAB creates a plugin; top-bar actions import
+  a ZIP (SAF) and open Get plugins.
+- **Get plugins**: bundled section (APK-signed artifacts) and repository section
+  (not-configured / loading / error+retry / signed entries with Install/Update).
+- **Detail**: header + enable switch (confirmation when a cascade or exclusive swap would
+  occur), contribution previews (palette, key rows, presets, settings values), the
+  plugin's **generated settings form**, dependencies with live state, metadata, and
+  Edit (local/import sources) / Duplicate & edit / Export / Uninstall (confirmed).
+- **Editor**: metadata form; per-type contribution editors (18-color theme editor with HSV
+  picker and live preview, extra-keys row/cell builder with popup support, preset fields,
+  terminal-settings key/value picker); a settings-schema designer (toggle/number/text/
+  choice/color); and an advanced raw-JSON mode with validation. Saving round-trips through
+  the strict parser, so the editor cannot produce a document the host would reject.
 
-### 5.3 Session presets
-
-- A preset only names a session and selects an existing directory under `$HOME`. It does not
-  contain a command, script, or environment mutation.
-- The terminal context menu lists enabled presets. Selecting one creates a normal session in
-  that directory through the existing `TermuxTerminalSessionActivityClient.addNewSession`
-  path. Nothing runs merely because a plugin was installed.
-- A preset whose directory does not exist is not listed and contributes nothing. If the
-  directory disappears after the runtime reload, selecting the entry shows an error and
-  creates no session.
-
-## 6. UI behavior
-
-Settings → Plugins opens `PluginManagerActivity`, a Material screen with a summary and
-three searchable tabs:
-
-- **Installed**: name, version, ID, type, enabled/disabled/invalid/overridden status,
-  permissions, dependencies, description, and preset directory. Actions are Enable,
-  Disable, Details, and Uninstall.
-- **Bundled**: the three plugins shipped in the APK: Solarized Dark, Paper Light, and
-  Coding keys. Each card shows its type, description, permission, and dependencies;
-  Install is available only when the plugin is not already installed. Confirmation states
-  that the plugin becomes active after installation and that another theme or extra-keys
-  provider will be disabled.
-- **Repository**: when a repository is configured, signed entries with name, version, type,
-  compatibility, permissions, dependencies, and Install or Update. The catalog is fetched
-  only when this tab is opened; Retry and Refresh recover from a failed fetch or load a newer
-  signed index.
-
-The screen provides explicit loading, empty, search-empty, and error states. Cards use
-48 dp minimum action targets and descriptive labels for assistive technology.
-
-Confirmations:
-
-- Enable shows declared permissions and dependencies.
-- Install shows version, type, permissions, artifact source, the authenticated artifact
-  size, whether the plugin becomes active immediately, and states that explicit user
-  settings continue to win.
-- Update shows the installed and available versions, the artifact source, and the
-  authenticated artifact size.
-- Uninstall explains that only plugin files and registrations are removed; Termux settings
-  and home files are not touched.
-- Disable is reversible and is confirmed before any dependent plugins are disabled.
-
-Registry, installed-entry validation, and catalog work run on a single background
-executor. Results are applied to the UI thread. `onResume` refreshes installed state and
-retries a failed catalog only when its tab is visible.
+All operations run on the manager's single background executor; results post to the main
+thread; a runtime change listener refreshes the UI. Snackbars report success/failure with
+the core's user-safe error messages.
 
 ## 7. Compatibility and versioning
 
-- `PluginApi.VERSION = 1`. A package with any other `apiVersion` is rejected.
-- `minCoreVersion` is compared to `BuildConfig.VERSION_NAME` using strict semver. A plugin that
-  requires a newer core is rejected, not best-effort loaded.
-- Adding a new plugin type or capability, or changing a payload schema incompatibly, requires a
-  new API version and corresponding host code. There is no reflection or dynamic dispatch.
-- The app version and `com.termux` identity are unchanged.
+- `apiVersion` and `schemaVersion` must be exactly `2`; anything else is rejected.
+- `minCoreVersion` is a hard floor against `BuildConfig.VERSION_NAME` (strict semver).
+- v1 installed plugins are migrated once at startup (type → single contribution, v1 string
+  key cells → v2 cell objects); enabled state and source survive; unconvertible plugins are
+  skipped and cleaned as orphans. The v1 registry is preserved as `registry.v1.bak`.
+- Adding a contribution type or changing a payload schema incompatibly requires a new API
+  version and host code. No reflection, no dynamic dispatch, no plugin code.
 
 ## 8. Relationship to companion apps
 
-- "Plugins" in this document are local, declarative extension packages.
-- Termux:API, Termux:Boot, Termux:Float, Termux:Styling, Termux:Tasker, and Termux:Widget
-  remain separate APKs with `sharedUserId com.termux`; they are not managed by this system.
-- The new system never invokes `RUN_COMMAND`, `TermuxService`, or a plugin APK.
-- Plugin themes are not visible to Termux:Styling or other apps because no files are written.
-  This is a documented limitation, not an accidental side effect.
-
-## 9. Why these boundaries
-
-- App module: the runtime needs app resources, terminal classes, and the settings activity;
-  `termux-shared` is a published library for companion apps and should not grow a private
-  plugin runtime.
-- App-private storage: plugin integrity checks are meaningful only if the app owns the
-  installed copy. A user-writable `~/.termux/plugins` directory would let any same-UID process
-  replace an "installed" package after validation.
-- Declarative data: the security model depends on never executing plugin-supplied code.
-- One active provider per exclusive contribution: prevents ambiguous theme/key precedence and
-  makes disable/recovery deterministic.
-- User configuration wins: plugin operations remain reversible and never silently replace an
-  explicit user choice.
+Termux:API/Boot/Float/Styling/Tasker/Widget remain separate APKs with `sharedUserId
+com.termux`; this system never invokes `RUN_COMMAND`, `TermuxService`, or a plugin APK.
+Plugin contributions are not visible to companion apps because no files are written —
+a documented limitation, unchanged from v1.

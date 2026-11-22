@@ -1,73 +1,73 @@
-# Declarative Plugins for Termux
+# Declarative Plugins for Termux Zen
 
 This directory documents the plugin system added to this Termux app fork. Plugins are
-**declarative data**, not executables: a theme, an extra-keys layout, or a session
-preset. The app never downloads or runs Java/Kotlin bytecode, JARs, DEX, native code,
-or scripts.
+**declarative data**, not executables: themes, extra-keys layouts, session presets and
+whitelisted terminal settings, optionally with their own user-configurable settings. The
+app never downloads or runs Java/Kotlin bytecode, JARs, DEX, native code, or scripts.
 
-Status: API v1 MVP implemented in `com.termux.app.plugins`. The x86_64 CI workflow and
-the emulator smoke job are green for this revision (run history in `TESTING.md` §9.3).
-Device verification of the manual steps in `TESTING.md` §6.2 remains pending.
+Status: **API v2** implemented in `com.termux.app.plugins` (Kotlin core) and
+`com.termux.app.plugins.ui` (Jetpack Compose hub + editor). The v2 rewrite replaces the
+v1 MVP (one fixed type per plugin, no settings, XML tab manager). Local verification:
+82 pure-JVM core tests green and the full Kotlin/Compose sources compile-checked on the
+aarch64 host; x86_64 CI results are recorded in `TESTING.md`. Device verification of the
+manual checklist remains pending.
 
 ## Documents
 
 | Document | Contents |
 | --- | --- |
-| [AUDIT.md](AUDIT.md) | Phase 0 repository audit: identity, prefix, hooks, existing tests, risks |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Components, storage, lifecycle, host extension points, versioning |
-| [PLUGIN_FORMAT.md](PLUGIN_FORMAT.md) | Manifest, payload, archive, signed repository index, installed state |
+| [AUDIT.md](AUDIT.md) | Phase 0 repository audit of the v1 baseline (historical) |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | v2 components, storage, lifecycle, extension points, versioning |
+| [PLUGIN_FORMAT.md](PLUGIN_FORMAT.md) | plugin.json, settings schema, contributions, signed index, installed state |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | Assets, trust boundaries, threats, mitigations, residual risks |
-| [TESTING.md](TESTING.md) | Exact commands, baseline and plugin test results, build/install notes |
-| [ROADMAP.md](ROADMAP.md) | MVP limitations, next milestones, acceptance criteria |
+| [TESTING.md](TESTING.md) | Exact commands, local v2 results, CI history, device checklist |
+| [ROADMAP.md](ROADMAP.md) | v2 limitations, next milestones, acceptance criteria |
 
-## Quick start (when a build is available)
+## Quick start
 
-1. Build and install the debug APK as described in [TESTING.md](TESTING.md) §6.
+1. Build and install the debug APK (CI artifact or an x86_64 host; see TESTING.md).
 2. Open **Settings → Plugins**.
-3. Open the **Bundled** tab and install **Solarized Dark**, **Paper Light**, or
-   **Coding keys**. Each install is confirmed before it is added and enabled.
-4. Open **Installed** to review its status, disable it, or uninstall it.
-5. User configuration wins: a `~/.termux/colors.properties` disables plugin themes,
-   and an explicit `extra-keys` or `extra-keys-style` in `termux.properties` overrides
-   the plugin keys.
+3. **Get plugins** → install **Solarized Dark**, **Paper Light** or **Coding Keys**
+   (confirmed, then active). Or tap **+** to create your own plugin: pick a contribution
+   type, edit colors/keys/presets/terminal settings, declare user settings, save.
+4. Tap a plugin for its detail screen: enable/disable, **generated settings form**,
+   contribution previews, dependencies, Edit / Duplicate & edit / Export / Uninstall.
+5. User configuration wins: `~/.termux/colors.properties` disables plugin themes, an
+   explicit `extra-keys` overrides plugin keys, and any `termux.properties` key you set
+   overrides the plugin's terminal settings.
 
-The bundled plugins are not installed automatically. This keeps uninstall permanent:
-the app does not recreate them on the next launch.
+Bundled plugins are not installed automatically, so uninstall stays permanent.
 
-## What is implemented
+## What is implemented (v2)
 
-- API v1 types/capabilities:
-  - `theme` / `terminal.theme`
-  - `extra_keys` / `terminal.extra_keys`
-  - `session_preset` / `sessions.preset`
-- Strict manifest/payload validation; exactly one capability matching the type.
-- Semver versions, `minCoreVersion`, dependencies, cycle detection, downgrade
-  rejection, and exclusive theme/extra-keys providers.
-- Bounded in-memory ZIP reading; only `manifest.json`, `payload.json`, optional
-  `LICENSE`; no extraction.
-- App-private storage under `getFilesDir()/plugins`; atomic registry writes; staged
-  installs; rollback on normal errors; SHA-256 revalidation on every activation.
-- Signed HTTPS repository index with a pinned RSA key; artifact size and hash checks;
-  bundled assets trusted by the APK signature.
-- Host-side capability enforcement and fail-closed runtime.
-- Settings entry, Material plugin manager with Installed/Bundled/Repository tabs,
-  search, loading/empty/error states, confirmations, and enable/disable/uninstall.
-- Three useful bundled plugins: Solarized Dark, Paper Light, and Coding keys.
-- Plugin unit tests cover the archive, manifest, payload, registry, installer,
-  repository client, and signature verifier. Exact current counts are in
-  [TESTING.md](TESTING.md).
+- Open contribution model: 1–16 contributions per plugin; types `theme`, `extra_keys`,
+  `session_preset` (many), `terminal_settings` (whitelisted cursor/bell/margins/scrollback/
+  all-caps). At most one theme/extra_keys/terminal_settings per plugin.
+- Per-plugin settings schema (toggle/number/text/choice/color) rendered generically;
+  `${settings.id}` tokens in contribution values with post-resolution re-validation.
+- In-app editor: visual theme editor with HSV color picker + live preview, extra-keys
+  row/cell builder with popups, preset fields, terminal-settings picker, settings designer,
+  and an advanced raw-JSON mode validated by the host parser.
+- Duplicate any plugin into an editable local copy; export/share ZIPs; import ZIPs (SAF).
+- Strict validation everywhere; bounded in-memory ZIP reading; app-private storage with
+  SHA-256 rechecks, atomic registry writes, quarantine, staged commits and rollback.
+- Fail-closed runtime; dependency floors, cycle detection, cascading disable/uninstall;
+  exclusive theme/extra-keys providers; generation counter for cross-activity refresh.
+- Signed HTTPS catalog with pinned RSA key (≥2048-bit), artifact size/hash/identity checks;
+  bundled assets trusted via the APK signature.
+- Compose hub (Material 3, dark): searchable installed list, browse, detail + settings,
+  editor; confirmation gates for cascades, exclusive swaps and uninstall.
+- v1 → v2 migration at startup (best-effort, registry backup kept).
+- 82 pure-JVM core tests + existing app/emulator suites; x86_64 CI with APK, lint and an
+  emulator smoke job covering the new hub.
 
 ## What is not implemented
 
-- No repository URL or pinned key is configured in this build, so the Repository tab
-  cannot install or update plugins in this build.
-- No automatic dependency installation.
-- No device-level verification of this revision yet. The aarch64 host cannot build the
-  APK; the x86_64 workflow and emulator job cover this revision, but the manual
-  checklist in `TESTING.md` §6.2 still needs a physical device.
-- No revocation/expiry for the repository index.
-- No crash journal; normal rollback only.
-- No executable plugins, by design.
+- No repository URL/key configured in this build (catalog path inert).
+- No automatic dependency installation; no font/binary plugins; no executable plugins
+  (by design).
+- No revocation/expiry/replay protection for the catalog; no crash journal.
+- No physical-device verification yet; accessibility audit pending.
 
 See [ROADMAP.md](ROADMAP.md) for the full list and next steps.
 
@@ -80,10 +80,10 @@ buildConfigField "String", "TERMUX_PLUGIN_REPOSITORY_URL", "\"\""
 buildConfigField "String", "TERMUX_PLUGIN_REPOSITORY_PUBLIC_KEY", "\"\""
 ```
 
-Set the URL to an HTTPS base containing `index.json` and `index.json.sig`, and the key
-to a Base64 X.509 RSA public key of at least 2048 bits. Leaving either empty disables
-the catalog; the bundled plugins remain available. The index format and signature
-rules are in [PLUGIN_FORMAT.md](PLUGIN_FORMAT.md) §4.
+Set the URL to an HTTPS base containing `index.json` and `index.json.sig`, and the key to a
+Base64 X.509 RSA public key of at least 2048 bits. Leaving either empty disables the
+catalog; bundled plugins and local creation remain available. Format and signature rules:
+[PLUGIN_FORMAT.md](PLUGIN_FORMAT.md) §5.
 
 ## Non-negotiable constraints
 
