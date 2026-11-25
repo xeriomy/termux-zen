@@ -41,7 +41,9 @@ object ZenApi {
     val SETTING_ID_REGEX = Regex("^[a-z][a-z0-9_]{0,31}$")
 
     /** References a plugin setting inside a contribution string value. */
-    val SETTING_TOKEN_REGEX = Regex("\\$\\{settings\\.([a-z][a-z0-9_]*)}")
+    // The closing brace must be escaped: Android's ICU regex rejects a bare `}` while
+    // java.util.regex accepts it, which would fail this object's initializer at startup.
+    val SETTING_TOKEN_REGEX = Regex("\\$\\{settings\\.([a-z][a-z0-9_]*)\\}")
 
     /** Color forms accepted by the host TerminalColors parser. */
     val COLOR_REGEX = Regex("^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{9}|[0-9a-fA-F]{12})$")

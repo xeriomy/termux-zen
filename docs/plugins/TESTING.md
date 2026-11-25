@@ -50,13 +50,13 @@ cd app && java -cp "test-out:core-out:stdlib.jar:json.jar:guava.jar:junit.jar:ha
 ```
 
 Result (this revision): `KOTLIN_COMPILE_EXIT=0`, `TEST_COMPILE_EXIT=0`,
-**`OK (82 tests)`** in ~4 s.
+**`OK (83 tests)`** in ~4 s.
 
 | Test class | Tests | Covers |
 | --- | ---: | --- |
 | `SemverTest` | 5 | Strict Semver 2.0.0 parse/reject, precedence incl. prerelease ordering, build-metadata equality |
 | `PluginParserTest` | 15 | Full document, round-trip serialization, unknown fields, schema/API versions, id grammar, bounds, duplicate exclusives, theme color forms, extra-keys shape/popups, preset path grammar, terminal-settings whitelist, settings schema per type, tokens, dependencies |
-| `PluginSettingsTest` | 7 | Effective values + fallbacks, per-type validation, token resolution, fail-closed resolved colors/paths, host JSON shape |
+| `PluginSettingsTest` | 8 | Effective values + fallbacks, per-type validation, token resolution, fail-closed resolved colors/paths, host JSON shape, Android-ICU-safe token regex |
 | `PluginArchiveTest` | 9 | Round-trip, LICENSE, missing/unknown/traversal/duplicate entries (raw duplicate local headers), oversize archive/document, garbage magic |
 | `PluginStoreTest` | 10 | Registry round-trip, quarantine-not-overwrite, v1 detection, hash tamper detection, move-aside commit, deletion containment, unsafe segments, orphan cleanup, staging |
 | `PluginRuntimeTest` | 12 | Active/disabled themes, generation, tamper fail-closed, exclusive ordering, missing/disabled deps, cycles, preset canonicalization/existence, terminal-settings merge, future-core, settings tokens into active theme |
@@ -86,6 +86,26 @@ dependency's `minCompileSdk=35` (verified from the AAR `aar-metadata.properties`
 compiles against 36. This compiles the Compose UI but does not execute it; Java hook
 compilation, resources, dexing and runtime behavior are verified in CI.
 
+### 2.3 Startup crash fix and re-verification (Termux/aarch64 host)
+
+A device crash report showed `ExceptionInInitializerError` at `ZenApi.<clinit>` during
+`TermuxApplication.onCreate` → `PluginManager.init` → `PluginMigration.migrateIfNeeded` →
+`PluginParser.parse` → `PluginJson.requireString`: `SETTING_TOKEN_REGEX` ended with a bare
+`}` (index 31), which `java.util.regex` accepts as a literal but Android's ICU regex
+rejects (`PatternSyntaxException: Syntax error in regex pattern near index 32`). The
+closing brace is now escaped and `PluginSettingsTest.settingTokenRegexIsAndroidIcuSafe`
+guards the escaped pattern, since JVM-only tests cannot catch this engine difference.
+
+Re-verified on a real Termux/aarch64 host (not the PRoot host of §1) with `openjdk-17`,
+aapt2 2.20, SDK platform 36 + build-tools 36.0.0 and
+`-Pandroid.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2`:
+83 pure-JVM tests, `:app:compileDebugKotlin` BUILD SUCCESSFUL,
+`:app:testDebugUnitTest` 85 tests / 0 failures, `:terminal-emulator:testDebugUnitTest`
+145 tests / 0 failures. Without the override, AGP's Maven aapt2 cannot execute on
+aarch64. APK assembly and lint remain CI-only here: `ndk-build` reports
+`Unknown host CPU architecture: aarch64` (NDK r29 and r30 ship only `linux-x86_64`
+prebuilts).
+
 ## 3. What local verification does not cover
 
 - Java sources (host hooks, termux-shared overlay) — compiled in CI.
@@ -99,7 +119,7 @@ compilation, resources, dexing and runtime behavior are verified in CI.
 With SDK platform 36 + build-tools 36.0.0 + NDK 29.0.14206865 installed, no overrides:
 
 ```bash
-./gradlew :app:testDebugUnitTest          # full app suite incl. 82 plugin tests
+./gradlew :app:testDebugUnitTest          # full app suite incl. 83 plugin tests
 ./gradlew :terminal-emulator:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ./gradlew :app:lintDebug
@@ -141,7 +161,7 @@ Workflow: `.github/workflows/plugin-verification.yml` (push to `master`/`plugins
 PRs to `master`, `workflow_dispatch` once on the default branch).
 
 `build-and-test` (ubuntu-24.04, Temurin 17, SDK 36/build-tools 36/NDK r29): plugin tests →
-full app suite → gate `scripts/check-unit-tests.py --min-tests 84` (82 plugin + 2 app
+full app suite → gate `scripts/check-unit-tests.py --min-tests 85` (83 plugin + 2 app
 tests; the historical `FileReceiverActivityTest` Robolectric-teardown quarantine is still
 encoded and only matches its exact message) → emulator unit tests → `assembleDebug` →
 APK checksums → `lintDebug`. Artifacts: `termux-debug-apk`, `plugin-verification-reports`.

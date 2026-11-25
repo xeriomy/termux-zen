@@ -8,7 +8,7 @@ app never downloads or runs Java/Kotlin bytecode, JARs, DEX, native code, or scr
 Status: **API v2** implemented in `com.termux.app.plugins` (Kotlin core) and
 `com.termux.app.plugins.ui` (Jetpack Compose hub + editor). The v2 rewrite replaces the
 v1 MVP (one fixed type per plugin, no settings, XML tab manager). Local verification:
-82 pure-JVM core tests green and the full Kotlin/Compose sources compile-checked on the
+83 pure-JVM core tests green and the full Kotlin/Compose sources compile-checked on the
 aarch64 host; x86_64 CI results are recorded in `TESTING.md`. Device verification of the
 manual checklist remains pending.
 
@@ -58,7 +58,7 @@ Bundled plugins are not installed automatically, so uninstall stays permanent.
 - Compose hub (Material 3, dark): searchable installed list, browse, detail + settings,
   editor; confirmation gates for cascades, exclusive swaps and uninstall.
 - v1 → v2 migration at startup (best-effort, registry backup kept).
-- 82 pure-JVM core tests + existing app/emulator suites; x86_64 CI with APK, lint and an
+- 83 pure-JVM core tests + existing app/emulator suites; x86_64 CI with APK, lint and an
   emulator smoke job covering the new hub.
 
 ## What is not implemented

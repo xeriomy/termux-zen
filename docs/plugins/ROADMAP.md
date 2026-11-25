@@ -24,7 +24,7 @@ Compose hub). Audience: maintainers.
   static catalog with pinned RSA key, no code execution, no writes to user data.
 - **v1 → v2 migration** at startup (best-effort, registry backup kept).
 - Kotlin 2.4.21 + Compose BOM 2025.10.00 chosen to keep **minSdk 21** (Android 5/6).
-- 82 pure-JVM core tests (parser, settings, archive, store, runtime, installer, migration,
+- 83 pure-JVM core tests (parser, settings, archive, store, runtime, installer, migration,
   repository signatures, bundled artifacts) + the existing app/emulator suites; x86_64 CI
   with APK, lint and an emulator smoke job covering the new hub.
 

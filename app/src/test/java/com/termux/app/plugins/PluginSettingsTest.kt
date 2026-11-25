@@ -127,4 +127,16 @@ class PluginSettingsTest {
             assertTrue(e.message!!.contains("nope"))
         }
     }
+
+    @Test
+    fun settingTokenRegexIsAndroidIcuSafe() {
+        // java.util.regex tolerates a bare `}` as a literal, but Android's ICU-backed
+        // regex throws PatternSyntaxException for it. Since the regex is a top-level val,
+        // that crashed ZenApi's initializer during TermuxApplication.onCreate.
+        assertTrue("closing brace must be escaped for Android's regex engine",
+            ZenApi.SETTING_TOKEN_REGEX.pattern.endsWith("\\}"))
+        val match = ZenApi.SETTING_TOKEN_REGEX.matchEntire("\${settings.accent}")
+        assertNotNull(match)
+        assertEquals("accent", match!!.groupValues[1])
+    }
 }
