@@ -250,6 +250,26 @@ assert_bundled_card() {
     die "$wanted is missing from bundled plugins"
 }
 
+# Compose LazyColumns only expose laid-out children to uiautomator. Start from the
+# top and scroll until the wanted text appears, so checks below the fold are real.
+assert_ui_text() {
+    local wanted=$1
+    for _ in $(seq 1 5); do
+        adb shell input swipe 540 700 540 1500 300 || true
+        sleep 1
+    done
+    for _ in $(seq 1 12); do
+        ui_dump || true
+        if ui_has "$wanted"; then
+            say "found '$wanted' on screen"
+            return 0
+        fi
+        adb shell input swipe 540 1500 540 700 300 || true
+        sleep 1
+    done
+    die "$wanted is missing from the screen"
+}
+
 # Start at the top of the list.
 for _ in $(seq 1 4); do
     adb shell input swipe 540 700 540 1500 300 || true
@@ -302,8 +322,8 @@ sleep 1
 ui_tap_text "Coding Keys" 3
 sleep 1
 ui_dump || die "could not dump the plugin detail screen"
-ui_has "ALL-CAPS key labels" || die "plugin settings were not rendered from the schema"
-ui_has "What it changes" || die "contribution previews are missing"
+assert_ui_text "What it changes"
+assert_ui_text "ALL-CAPS key labels"
 screenshot plugin-detail
 ui_tap_text "Back" 2
 sleep 1
