@@ -225,10 +225,13 @@ cannot be installed.
 ```
 
 `source` is `bundled`, `repository`, `local` (created/duplicated in-app) or `import` (user
-ZIP). any installed plugin can be customized in place; the hub confirms first for
-bundled/repository artifacts and saving re-labels the record as `local`. Bundled/repository
-plugins can also be duplicated into a separate editable `local` copy (`<id>.copy`,
-`<id>.copy2`, …). The SHA-256 is
+ZIP). Any installed plugin's contributions can be customized in place; the hub confirms
+first for bundled/repository artifacts and saving re-labels the record as `local`. Plugin
+identity, version and the settings schema are author-defined in `plugin.json` and cannot be
+changed from the in-app editor (raw-JSON mode is hidden for loaded plugins). Bundled/repository
+plugins can also be duplicated into a separate `local` copy (`<id>.copy`, `<id>.copy2`, …),
+whose contributions can be customized while its metadata and settings stay author-defined.
+The SHA-256 is
 rechecked on every load; modified files make the plugin invalid. Registry writes are
 atomic; unreadable registries are quarantined, never silently overwritten.
 

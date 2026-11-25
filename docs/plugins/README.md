@@ -32,7 +32,8 @@ manual checklist remains pending.
    type, edit colors/keys/presets/terminal settings, declare user settings, save.
 4. Tap a plugin for its detail screen: enable/disable, **generated settings form**,
    contribution previews, dependencies, Edit (customize the installed plugin in place;
-   confirmed for bundled/repository plugins) / Duplicate & edit / Export / Uninstall.
+   confirmed for bundled/repository plugins; contributions only) / Duplicate & edit /
+   Export / Uninstall.
 5. User configuration wins: `~/.termux/colors.properties` disables plugin themes, an
    explicit `extra-keys` overrides plugin keys, and any `termux.properties` key you set
    overrides the plugin's terminal settings.

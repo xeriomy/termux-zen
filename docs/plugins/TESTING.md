@@ -100,7 +100,7 @@ Re-verified on a real Termux/aarch64 host (not the PRoot host of §1) with `open
 aapt2 2.20, SDK platform 36 + build-tools 36.0.0 and
 `-Pandroid.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2`:
 85 pure-JVM tests, `:app:compileDebugKotlin` BUILD SUCCESSFUL,
-`:app:testDebugUnitTest` 87 tests / 0 failures, `:terminal-emulator:testDebugUnitTest`
+`:app:testDebugUnitTest` 89 tests / 0 failures, `:terminal-emulator:testDebugUnitTest`
 145 tests / 0 failures. Without the override, AGP's Maven aapt2 cannot execute on
 aarch64. APK assembly and lint remain CI-only here: `ndk-build` reports
 `Unknown host CPU architecture: aarch64` (NDK r29 and r30 ship only `linux-x86_64`
@@ -122,7 +122,7 @@ installed plugin, with a confirmation for bundled/repository artifacts and a `lo
 re-label on save. New tests cover the shared validator and the in-place re-label.
 
 Re-verified on the same aarch64 host: 85 pure-JVM tests,
-`:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 87 tests / 0 failures.
+`:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 89 tests / 0 failures.
 Emulator/device interaction with the new controls still needs a CI APK and the §5 checklist.
 
 ### 2.5 Bundled plugin set and expanded Coding Keys
@@ -134,6 +134,18 @@ rows alongside the original modifiers and PWD key, so the bundled sample exercis
 the extra-keys grammar. Both bundled artifacts were re-parsed and resolved by
 `BundledPluginsTest`; the emulator smoke now looks for Midnight Dark instead of the removed
 themes. Device interaction with the new key rows remains on the §5 checklist.
+
+### 2.6 Author-defined metadata and settings schema
+
+The user clarified that plugin identity, version and the list of user-editable settings are
+authored by the plugin developer in `plugin.json`, not changed by a user from the in-app
+editor. Drafts loaded from an installed artifact (including duplicates) are now
+schema-locked: name, id, version, author and description are read-only, the settings list is
+read-only (no add/edit/delete), and raw-JSON mode is hidden so the lock cannot be bypassed.
+Only contribution values stay editable; setting **values** continue to be changed on the
+detail screen's generated form. New-plugin authoring keeps all fields available.
+`EditorDraftTest` covers both locks. Re-verified: 85 pure-JVM tests,
+`:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 89 tests / 0 failures.
 
 ## 3. What local verification does not cover
 
@@ -172,8 +184,11 @@ safety, invalid-state recovery or accessibility.
    labels**; terminal cursor becomes a blinking bar; scrollback grows. Set
    `terminal-cursor-style` in `termux.properties`; the user value wins.
 6. Add an explicit `extra-keys`; plugin keys become overridden.
-7. Create a plugin in the editor (theme + a color setting), save, enable, verify; edit it;
-   duplicate a bundled plugin and edit the copy; export and re-import the ZIP.
+7. Create a plugin in the editor (theme + a color setting), save, enable, verify; edit its
+   contribution colors only — name/ID/version/author/description and the settings list must
+   be read-only, with no **Advanced: edit JSON** button; duplicate a bundled plugin and edit
+   the copy's contributions; export and re-import the ZIP. Setting values are changed on the
+   detail screen, not in the editor.
 8. Duplicate Midnight Dark and enable the local copy while the original is enabled:
    confirm the exclusive-swap warning; the previous theme provider is disabled.
 9. Dependencies: install a preset-only base + a dependent plugin; disable the base and
@@ -191,7 +206,7 @@ Workflow: `.github/workflows/plugin-verification.yml` (push to `master`/`plugins
 PRs to `master`, `workflow_dispatch` once on the default branch).
 
 `build-and-test` (ubuntu-24.04, Temurin 17, SDK 36/build-tools 36/NDK r29): plugin tests →
-full app suite → gate `scripts/check-unit-tests.py --min-tests 87` (85 plugin + 2 app
+full app suite → gate `scripts/check-unit-tests.py --min-tests 89` (85 plugin + 4 app
 tests; the historical `FileReceiverActivityTest` Robolectric-teardown quarantine is still
 encoded and only matches its exact message) → emulator unit tests → `assembleDebug` →
 APK checksums → `lintDebug`. Artifacts: `termux-debug-apk`, `plugin-verification-reports`.

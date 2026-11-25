@@ -135,7 +135,15 @@ class EditorDraft(
     var jsonText by mutableStateOf("")
     var jsonError by mutableStateOf<String?>(null)
 
+    /**
+     * Plugins loaded from an existing artifact (including duplicates) keep the author's
+     * identity, version and settings schema. Only the contributions are editable in-app;
+     * those fields belong in the plugin's own JSON, authored by its developer.
+     */
+    val schemaLocked: Boolean get() = originalId != null
+
     fun enterJsonMode() {
+        if (schemaLocked) return
         try {
             jsonText = PluginParser.toJson(buildManifest())
             jsonError = null
@@ -200,7 +208,9 @@ class EditorDraft(
 
     /** Builds and strictly validates the document; throws [PluginException] when invalid. */
     fun toManifest(): PluginManifest {
-        if (jsonMode) return PluginParser.parse(jsonText)
+        // Raw JSON authoring is only for new plugins; a locked draft cannot bypass the
+        // form restrictions by switching modes.
+        if (jsonMode && !schemaLocked) return PluginParser.parse(jsonText)
         val manifest = buildManifest()
         return PluginParser.parse(PluginParser.toJson(manifest))
     }

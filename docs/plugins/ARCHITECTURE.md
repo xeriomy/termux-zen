@@ -152,14 +152,18 @@ closed for that generation.
 - **Detail**: header + enable switch (confirmation when a cascade or exclusive swap would
   occur), contribution previews (palette, key rows, presets, settings values), the
   plugin's **generated settings form**, dependencies with live state, metadata, and
-  Edit (in place for any source, confirmed for bundled/repository) / Duplicate & edit /
-  Export / Uninstall (confirmed).
-- **Editor**: metadata form; per-type contribution editors (18-color theme editor with HSV
-  picker and live preview, extra-keys row/cell builder with click-to-edit keys and a
-  separate delete button, preset fields, terminal-settings key/value editor with editable
-  values and `${settings.id}` tokens); a settings-schema designer (toggle/number/text/
-  choice/color); and an advanced raw-JSON mode with validation. Saving round-trips through
-  the strict parser, so the editor cannot produce a document the host would reject.
+  Edit (in place for any source, confirmed for bundled/repository; contributions only) /
+  Duplicate & edit / Export / Uninstall (confirmed).
+- **Editor**: metadata form and settings-schema designer (toggle/number/text/choice/color)
+  plus raw-JSON mode are available only when authoring a **new** plugin. A draft loaded from
+  an installed artifact (including a duplicate) is schema-locked: name, id, version, author,
+  description and the settings list are read-only, because they belong to the plugin author's
+  JSON, and raw-JSON mode is unavailable so the lock cannot be bypassed. Only the per-type
+  contribution editors remain usable (18-color theme editor with HSV picker, extra-keys
+  row/cell builder with click-to-edit keys and a separate delete button, preset fields,
+  terminal-settings key/value editor with editable values and `${settings.id}` tokens).
+  Setting **values** are changed on the detail screen's generated form. Saving round-trips
+  through the strict parser, so the editor cannot produce a document the host would reject.
 
 All operations run on the manager's single background executor; results post to the main
 thread; a runtime change listener refreshes the UI. Snackbars report success/failure with

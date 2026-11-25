@@ -138,6 +138,7 @@ is trusted to confirm installs, enables, uninstalls, and their own edits.
 | Editor writes outside plugin storage | Editor saves go through the installer only; export writes to app cache `zen-exports/` and shares via a non-exported FileProvider with read-only grants |
 | Editor produces a document the host would reject | Save round-trips through the strict parser; Advanced JSON mode uses the same validator |
 | Editing someone else's installed plugin silently | In-place editing of bundled/repository artifacts needs an explicit confirmation that states the copy stops matching the original; saving re-labels the record as `local` so provenance stays visible. Duplicate & edit remains available for keeping the original |
+| Rewriting a plugin's identity or settings from the UI | Name, id, version, author, description and the settings schema are author-defined in `plugin.json`; loaded drafts are schema-locked and raw-JSON mode is hidden, so only contribution values can change in-app. Setting values remain user-editable on the generated form |
 | Id squatting via duplication | Copy ids derived deterministically (`.copy`, `.copy2`, …) and checked against the registry; id field locked when editing an existing plugin |
 | Uninstall destroys settings | Confirmation states only plugin files/registration are removed; cascades are confirmed |
 | Plugin name spoofs another | Unique ids displayed; names bounded, control chars rejected; users should check the id |

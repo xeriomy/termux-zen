@@ -101,10 +101,14 @@ fun EditorScreen(controller: HubController, draft: EditorDraft) {
             Button(onClick = { controller.saveDraft(draft) }, modifier = Modifier.weight(1f)) {
                 Text(ZenStrings.SAVE)
             }
-            OutlinedButton(onClick = {
-                if (draft.jsonMode) draft.exitJsonMode() else draft.enterJsonMode()
-            }, modifier = Modifier.weight(1f)) {
-                Text(if (draft.jsonMode) ZenStrings.EDITOR_BASIC_MODE else ZenStrings.EDITOR_ADVANCED_JSON, maxLines = 1)
+            // JSON mode could bypass the locked metadata/settings schema, so it is only
+            // offered when authoring a brand-new plugin.
+            if (!draft.schemaLocked) {
+                OutlinedButton(onClick = {
+                    if (draft.jsonMode) draft.exitJsonMode() else draft.enterJsonMode()
+                }, modifier = Modifier.weight(1f)) {
+                    Text(if (draft.jsonMode) ZenStrings.EDITOR_BASIC_MODE else ZenStrings.EDITOR_ADVANCED_JSON, maxLines = 1)
+                }
             }
         }
         Spacer(Modifier.height(24.dp))
@@ -129,19 +133,28 @@ fun EditorScreen(controller: HubController, draft: EditorDraft) {
 
 @Composable
 private fun MetadataSection(draft: EditorDraft) {
+    val locked = draft.schemaLocked
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (locked) {
+                Text(ZenStrings.EDITOR_METADATA_LOCKED, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             OutlinedTextField(draft.name, { draft.name = it },
-                label = { Text(ZenStrings.EDITOR_NAME) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text(ZenStrings.EDITOR_NAME) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                enabled = !locked)
             OutlinedTextField(draft.id, { draft.id = it },
                 label = { Text(ZenStrings.EDITOR_ID) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                enabled = draft.originalId == null)
+                enabled = !locked)
             OutlinedTextField(draft.version, { draft.version = it },
-                label = { Text(ZenStrings.EDITOR_VERSION) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text(ZenStrings.EDITOR_VERSION) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                enabled = !locked)
             OutlinedTextField(draft.author, { draft.author = it },
-                label = { Text(ZenStrings.EDITOR_AUTHOR) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                label = { Text(ZenStrings.EDITOR_AUTHOR) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                enabled = !locked)
             OutlinedTextField(draft.description, { draft.description = it },
-                label = { Text(ZenStrings.EDITOR_DESCRIPTION) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                label = { Text(ZenStrings.EDITOR_DESCRIPTION) }, modifier = Modifier.fillMaxWidth(), minLines = 2,
+                enabled = !locked)
         }
     }
 }
@@ -492,9 +505,11 @@ private fun TerminalSettingsEditor(
 private fun SettingsSchemaSection(draft: EditorDraft) {
     var editing by remember { mutableStateOf<SettingSpec?>(null) }
     var creating by remember { mutableStateOf(false) }
+    val locked = draft.schemaLocked
     SectionHeader(ZenStrings.EDITOR_SETTINGS_SCHEMA)
     Text(
-        "Settings you declare here are rendered automatically for the user. Reference them in contribution values with \${settings.id}.",
+        if (locked) ZenStrings.EDITOR_SETTINGS_LOCKED
+        else "Settings you declare here are rendered automatically for the user. Reference them in contribution values with \${settings.id}.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -507,21 +522,25 @@ private fun SettingsSchemaSection(draft: EditorDraft) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = { editing = spec }) {
-                Icon(Icons.Filled.Edit, contentDescription = ZenStrings.EDIT_PLUGIN, modifier = Modifier.size(18.dp))
-            }
-            IconButton(onClick = { draft.settings.removeAt(index) }) {
-                Icon(Icons.Filled.Delete, contentDescription = ZenStrings.REMOVE,
-                    modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+            if (!locked) {
+                IconButton(onClick = { editing = spec }) {
+                    Icon(Icons.Filled.Edit, contentDescription = ZenStrings.EDIT_PLUGIN, modifier = Modifier.size(18.dp))
+                }
+                IconButton(onClick = { draft.settings.removeAt(index) }) {
+                    Icon(Icons.Filled.Delete, contentDescription = ZenStrings.REMOVE,
+                        modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
-    OutlinedButton(onClick = { creating = true }) {
-        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(ZenStrings.EDITOR_ADD_SETTING)
+    if (!locked) {
+        OutlinedButton(onClick = { creating = true }) {
+            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(ZenStrings.EDITOR_ADD_SETTING)
+        }
     }
-    if (creating || editing != null) {
+    if (!locked && (creating || editing != null)) {
         SettingSpecDialog(
             initial = editing,
             existingIds = draft.settings.map { it.id }.toSet(),
