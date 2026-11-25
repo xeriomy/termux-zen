@@ -152,10 +152,12 @@ closed for that generation.
 - **Detail**: header + enable switch (confirmation when a cascade or exclusive swap would
   occur), contribution previews (palette, key rows, presets, settings values), the
   plugin's **generated settings form**, dependencies with live state, metadata, and
-  Edit (local/import sources) / Duplicate & edit / Export / Uninstall (confirmed).
+  Edit (in place for any source, confirmed for bundled/repository) / Duplicate & edit /
+  Export / Uninstall (confirmed).
 - **Editor**: metadata form; per-type contribution editors (18-color theme editor with HSV
-  picker and live preview, extra-keys row/cell builder with popup support, preset fields,
-  terminal-settings key/value picker); a settings-schema designer (toggle/number/text/
+  picker and live preview, extra-keys row/cell builder with click-to-edit keys and a
+  separate delete button, preset fields, terminal-settings key/value editor with editable
+  values and `${settings.id}` tokens); a settings-schema designer (toggle/number/text/
   choice/color); and an advanced raw-JSON mode with validation. Saving round-trips through
   the strict parser, so the editor cannot produce a document the host would reject.
 

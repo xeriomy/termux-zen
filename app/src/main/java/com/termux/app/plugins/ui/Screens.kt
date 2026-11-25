@@ -1,5 +1,6 @@
 package com.termux.app.plugins.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -45,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.termux.app.plugins.Contribution
@@ -210,13 +213,16 @@ fun BrowseScreen(controller: HubController) {
             }
         }
         items(controller.bundled, key = { it.assetName }) { bundledItem ->
+            val installedVersion = controller.installed
+                .firstOrNull { it.record.id == bundledItem.manifest?.id }?.record?.version?.raw
             BrowseCard(
                 title = bundledItem.manifest?.name ?: bundledItem.assetName,
                 description = bundledItem.manifest?.description ?: bundledItem.error ?: "",
                 version = bundledItem.manifest?.version?.raw ?: "?",
                 types = bundledItem.manifest?.contributionTypes ?: emptyList(),
-                installedVersion = controller.installed.firstOrNull { it.record.id == bundledItem.manifest?.id }?.record?.version?.raw,
-                buttonLabel = ZenStrings.INSTALL_PLUGIN,
+                installedVersion = installedVersion,
+                buttonLabel = if (installedVersion != null) ZenStrings.INSTALLED_LABEL else ZenStrings.INSTALL_PLUGIN,
+                enabled = installedVersion == null,
                 onInstall = { confirmInstallBundled = bundledItem }
             )
         }
@@ -261,7 +267,11 @@ fun BrowseScreen(controller: HubController) {
                     version = entry.version.raw,
                     types = entry.types,
                     installedVersion = installedVersion?.raw,
-                    buttonLabel = if (isUpdate) ZenStrings.UPDATE_PLUGIN else ZenStrings.INSTALL_PLUGIN,
+                    buttonLabel = when {
+                        isUpdate -> ZenStrings.UPDATE_PLUGIN
+                        installedVersion != null -> ZenStrings.INSTALLED_LABEL
+                        else -> ZenStrings.INSTALL_PLUGIN
+                    },
                     enabled = installedVersion == null || isUpdate,
                     onInstall = { controller.installCatalogEntry(entry) }
                 )
@@ -297,15 +307,29 @@ fun BrowseCard(
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface)
+                        if (installedVersion != null) {
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                ZenStrings.INSTALLED_LABEL,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text(
                         if (installedVersion != null) "$version · ${ZenStrings.INSTALLED_LABEL} $installedVersion" else version,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Button(onClick = onInstall, enabled = enabled) { Text(buttonLabel) }
+                Button(onClick = onInstall, enabled = enabled) { Text(buttonLabel, maxLines = 1) }
             }
             if (description.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
@@ -335,6 +359,7 @@ fun DetailScreen(controller: HubController, id: String) {
     val manifest = item.manifest
     var confirmUninstall by remember { mutableStateOf(false) }
     var confirmToggle by remember { mutableStateOf<Boolean?>(null) }
+    var confirmEdit by remember { mutableStateOf(false) }
 
     val dependants = controller.installed.filter { other ->
         other.record.id != id && other.manifest?.dependencies?.any { it.id == id } == true
@@ -446,10 +471,13 @@ fun DetailScreen(controller: HubController, id: String) {
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    if (item.record.source in ZenApi.EDITABLE_SOURCES) {
-                        Button(onClick = { controller.startEdit(item) }, modifier = Modifier.weight(1f)) {
-                            Text(ZenStrings.EDIT_PLUGIN)
-                        }
+                    // Any installed plugin can be customized in place; duplicate stays available
+                    // when the user wants to keep the original alongside their changes.
+                    Button(onClick = {
+                        if (item.record.source in ZenApi.EDITABLE_SOURCES) controller.startEdit(item)
+                        else confirmEdit = true
+                    }, modifier = Modifier.weight(1f)) {
+                        Text(ZenStrings.EDIT_PLUGIN)
                     }
                     OutlinedButton(onClick = { controller.duplicateAndEdit(id) }, modifier = Modifier.weight(1f)) {
                         Text(ZenStrings.DUPLICATE_PLUGIN, maxLines = 1)
@@ -477,6 +505,15 @@ fun DetailScreen(controller: HubController, id: String) {
                 }
             }
         }
+    }
+    if (confirmEdit) {
+        ConfirmDialog(
+            title = ZenStrings.CONFIRM_EDIT_TITLE,
+            body = ZenStrings.CONFIRM_EDIT_BODY,
+            confirmLabel = ZenStrings.EDIT_PLUGIN,
+            onConfirm = { confirmEdit = false; controller.startEdit(item) },
+            onDismiss = { confirmEdit = false }
+        )
     }
     if (confirmUninstall) {
         ConfirmDialog(

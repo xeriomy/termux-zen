@@ -206,6 +206,21 @@ class PluginParserTest {
     }
 
     @Test
+    fun terminalValueValidatorMatchesParserAndEditor() {
+        val ids = setOf("all_caps")
+        assertTrue(TerminalSettingsSchema.isValidDocumentValue("terminal-cursor-style", "bar", ids))
+        assertTrue(TerminalSettingsSchema.isValidDocumentValue(
+            "extra-keys-text-all-caps", "\${settings.all_caps}", ids))
+        // Same rules the parser applies: unknown keys, bad literals and undeclared tokens.
+        assertTrue(!TerminalSettingsSchema.isValidDocumentValue("bogus-key", "bar", ids))
+        assertTrue(!TerminalSettingsSchema.isValidDocumentValue("bell-character", "explode", ids))
+        assertTrue(!TerminalSettingsSchema.isValidDocumentValue(
+            "extra-keys-text-all-caps", "\${settings.missing}", ids))
+        assertTrue(!TerminalSettingsSchema.isValidDocumentValue("terminal-cursor-style", "", ids))
+        assertTrue(!TerminalSettingsSchema.isValidDocumentValue("terminal-cursor-style", "x".repeat(65), ids))
+    }
+
+    @Test
     fun validatesSettingsSchema() {
         fun settingsDoc(vararg specs: JSONObject): String =
             PluginTestUtils.document(settings = JSONArray().apply { specs.forEach { put(it) } })

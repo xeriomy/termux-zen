@@ -225,8 +225,10 @@ cannot be installed.
 ```
 
 `source` is `bundled`, `repository`, `local` (created/duplicated in-app) or `import` (user
-ZIP). `local` and `import` plugins are editable in place; bundled/repository plugins can be
-duplicated into an editable `local` copy (`<id>.copy`, `<id>.copy2`, …). The SHA-256 is
+ZIP). any installed plugin can be customized in place; the hub confirms first for
+bundled/repository artifacts and saving re-labels the record as `local`. Bundled/repository
+plugins can also be duplicated into a separate editable `local` copy (`<id>.copy`,
+`<id>.copy2`, …). The SHA-256 is
 rechecked on every load; modified files make the plugin invalid. Registry writes are
 atomic; unreadable registries are quarantined, never silently overwritten.
 

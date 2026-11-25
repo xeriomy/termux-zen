@@ -50,17 +50,17 @@ cd app && java -cp "test-out:core-out:stdlib.jar:json.jar:guava.jar:junit.jar:ha
 ```
 
 Result (this revision): `KOTLIN_COMPILE_EXIT=0`, `TEST_COMPILE_EXIT=0`,
-**`OK (83 tests)`** in ~4 s.
+**`OK (85 tests)`** in ~4 s.
 
 | Test class | Tests | Covers |
 | --- | ---: | --- |
 | `SemverTest` | 5 | Strict Semver 2.0.0 parse/reject, precedence incl. prerelease ordering, build-metadata equality |
-| `PluginParserTest` | 15 | Full document, round-trip serialization, unknown fields, schema/API versions, id grammar, bounds, duplicate exclusives, theme color forms, extra-keys shape/popups, preset path grammar, terminal-settings whitelist, settings schema per type, tokens, dependencies |
+| `PluginParserTest` | 16 | Full document, round-trip serialization, unknown fields, schema/API versions, id grammar, bounds, duplicate exclusives, theme color forms, extra-keys shape/popups, preset path grammar, terminal-settings whitelist + shared editor validator, settings schema per type, tokens, dependencies |
 | `PluginSettingsTest` | 8 | Effective values + fallbacks, per-type validation, token resolution, fail-closed resolved colors/paths, host JSON shape, Android-ICU-safe token regex |
 | `PluginArchiveTest` | 9 | Round-trip, LICENSE, missing/unknown/traversal/duplicate entries (raw duplicate local headers), oversize archive/document, garbage magic |
 | `PluginStoreTest` | 10 | Registry round-trip, quarantine-not-overwrite, v1 detection, hash tamper detection, move-aside commit, deletion containment, unsafe segments, orphan cleanup, staging |
 | `PluginRuntimeTest` | 12 | Active/disabled themes, generation, tamper fail-closed, exclusive ordering, missing/disabled deps, cycles, preset canonicalization/existence, terminal-settings merge, future-core, settings tokens into active theme |
-| `PluginInstallerTest` | 14 | Fresh install states, update preserves enabled+settings, downgrade rejection, dependency gates, exclusive swap, cascades, uninstall, settings validation/reset, duplicate, catalog identity, artifact validation, idempotent enable |
+| `PluginInstallerTest` | 15 | Fresh install states, update preserves enabled+settings, downgrade rejection, dependency gates, exclusive swap, cascades, uninstall, settings validation/reset, duplicate, in-place edit re-labeling, catalog identity, artifact validation, idempotent enable |
 | `PluginMigrationTest` | 3 | All three v1 types migrate (enabled state, backup, runtime loads), unconvertible skipped, no-op for v2/empty |
 | `PluginRepositoryTest` | 4 | Catalog parse/rejects, RSA-2048 signature verify + tamper failure, weak-key rejection |
 | `BundledPluginsTest` | 3 | Shipped v2 ZIPs parse + resolve through the real parser; accent/paper-tone/all-caps settings resolve |
@@ -99,12 +99,31 @@ guards the escaped pattern, since JVM-only tests cannot catch this engine differ
 Re-verified on a real Termux/aarch64 host (not the PRoot host of §1) with `openjdk-17`,
 aapt2 2.20, SDK platform 36 + build-tools 36.0.0 and
 `-Pandroid.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2`:
-83 pure-JVM tests, `:app:compileDebugKotlin` BUILD SUCCESSFUL,
-`:app:testDebugUnitTest` 85 tests / 0 failures, `:terminal-emulator:testDebugUnitTest`
+85 pure-JVM tests, `:app:compileDebugKotlin` BUILD SUCCESSFUL,
+`:app:testDebugUnitTest` 87 tests / 0 failures, `:terminal-emulator:testDebugUnitTest`
 145 tests / 0 failures. Without the override, AGP's Maven aapt2 cannot execute on
 aarch64. APK assembly and lint remain CI-only here: `ndk-build` reports
 `Unknown host CPU architecture: aarch64` (NDK r29 and r30 ship only `linux-x86_64`
 prebuilts).
+
+### 2.4 Plugin editor/hub UX fixes and re-verification
+
+From device screenshots: the editor let users change metadata but not the contribution
+values they actually want to tune, a tap on a key chip deleted the key, a redundant key
+preview repeated the rows, and installed plugins were not marked as installed in Browse.
+
+Changes: key chips now open a cell editor on the label and delete through a separate
+button (with a second, deliberate "Remove key" action inside the dialog); the duplicate
+key preview was removed; terminal-settings values are editable (including `${settings.id}`
+tokens) using one validator shared with the strict parser
+(`TerminalSettingsSchema.isValidDocumentValue`); Browse cards show an "Installed" badge
+and a disabled "Installed" button for installed plugins; Edit is available for any
+installed plugin, with a confirmation for bundled/repository artifacts and a `local`
+re-label on save. New tests cover the shared validator and the in-place re-label.
+
+Re-verified on the same aarch64 host: 85 pure-JVM tests,
+`:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 87 tests / 0 failures.
+Emulator/device interaction with the new controls still needs a CI APK and the §5 checklist.
 
 ## 3. What local verification does not cover
 
@@ -119,7 +138,7 @@ prebuilts).
 With SDK platform 36 + build-tools 36.0.0 + NDK 29.0.14206865 installed, no overrides:
 
 ```bash
-./gradlew :app:testDebugUnitTest          # full app suite incl. 83 plugin tests
+./gradlew :app:testDebugUnitTest          # full app suite incl. 85 plugin tests
 ./gradlew :terminal-emulator:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ./gradlew :app:lintDebug
@@ -161,7 +180,7 @@ Workflow: `.github/workflows/plugin-verification.yml` (push to `master`/`plugins
 PRs to `master`, `workflow_dispatch` once on the default branch).
 
 `build-and-test` (ubuntu-24.04, Temurin 17, SDK 36/build-tools 36/NDK r29): plugin tests →
-full app suite → gate `scripts/check-unit-tests.py --min-tests 85` (83 plugin + 2 app
+full app suite → gate `scripts/check-unit-tests.py --min-tests 87` (85 plugin + 2 app
 tests; the historical `FileReceiverActivityTest` Robolectric-teardown quarantine is still
 encoded and only matches its exact message) → emulator unit tests → `assembleDebug` →
 APK checksums → `lintDebug`. Artifacts: `termux-debug-apk`, `plugin-verification-reports`.

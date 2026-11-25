@@ -247,7 +247,11 @@ class HubController(private val activity: ComponentActivity) {
             val manifest = draft.toManifest()
             val text = PluginParser.toJson(manifest)
             PluginParser.parse(text) // round-trip validation before committing
-            PluginManager.getInstaller()?.installDocument(text, ZenApi.SOURCE_LOCAL, enable = false)
+            // An in-place edit turns any artifact into a locally customized one.
+            val forceSource = if (draft.originalId != null) ZenApi.SOURCE_LOCAL else null
+            PluginManager.getInstaller()?.installDocument(
+                text, ZenApi.SOURCE_LOCAL, enable = false, forceSource = forceSource
+            )
             manifest.id
         }, { result ->
             busy = false

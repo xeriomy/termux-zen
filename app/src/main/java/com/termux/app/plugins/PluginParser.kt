@@ -271,10 +271,10 @@ object PluginParser {
             if (value !is String || value.isEmpty() || value.length > 64)
                 throw PluginException("$what value for \"$key\" must be a non-empty string of at most 64 characters")
             val isToken = value.contains("\${settings.")
-            if (!TerminalSettingsSchema.validate(key, value) && !isToken)
-                throw PluginException("$what value \"$value\" is invalid for \"$key\"")
             if (isToken && !PluginSettings.tokensValid(value, settingIds))
                 throw PluginException("$what value for \"$key\" references an undeclared setting")
+            if (!TerminalSettingsSchema.isValidDocumentValue(key, value, settingIds))
+                throw PluginException("$what value \"$value\" is invalid for \"$key\"")
             values[key] = value
         }
         return Contribution.TerminalSettings(values)
@@ -440,6 +440,16 @@ object TerminalSettingsSchema {
         TRANSCRIPT_ROWS -> intInRange(value, 100, 50000)
         EXTRA_KEYS_TEXT_ALL_CAPS -> value in setOf("true", "false")
         else -> false
+    }
+
+    /**
+     * Full document-level check shared by the parser and the editor: a literal must satisfy
+     * [validate], while a `${settings.id}` token is checked against the declared settings.
+     */
+    fun isValidDocumentValue(key: String, value: String, settingIds: Set<String>): Boolean {
+        if (key !in KEYS || value.isEmpty() || value.length > 64) return false
+        if (validate(key, value)) return true
+        return value.contains("\${settings.") && PluginSettings.tokensValid(value, settingIds)
     }
 
     private fun intInRange(value: String, min: Int, max: Int): Boolean {

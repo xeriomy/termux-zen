@@ -36,7 +36,9 @@ class PluginInstaller(
         text: String,
         source: String,
         enable: Boolean,
-        expected: CatalogIdentity? = null
+        expected: CatalogIdentity? = null,
+        /** Used when the user explicitly edits an installed artifact in place. */
+        forceSource: String? = null
     ): PluginManifest {
         if (source !in ZenApi.SOURCES) throw PluginException("unknown plugin source \"$source\"")
         val manifest = PluginParser.parse(text)
@@ -86,7 +88,11 @@ class PluginInstaller(
         }
         val record = PluginRecord(
             manifest.id, manifest.version, willBeEnabled,
-            if (existing != null) existing.source else source,
+            when {
+                existing == null -> source
+                forceSource != null -> forceSource
+                else -> existing.source
+            },
             PluginStore.sha256Hex(text.toByteArray(Charsets.UTF_8)), keptSettings
         )
         val finalRecords = updated.filter { it.id != manifest.id } + record

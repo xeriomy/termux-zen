@@ -185,7 +185,9 @@ private fun ContributionEditorCard(draft: EditorDraft, index: Int, contribution:
                 is EditableContribution.Theme -> ThemeEditor(contribution)
                 is EditableContribution.Keys -> KeysEditor(contribution)
                 is EditableContribution.Preset -> PresetEditor(contribution)
-                is EditableContribution.Terminal -> TerminalSettingsEditor(contribution)
+                is EditableContribution.Terminal -> TerminalSettingsEditor(
+                    contribution, draft.settings.map { it.id }.toSet()
+                )
             }
         }
     }
@@ -238,7 +240,9 @@ private fun ThemeEditor(theme: EditableContribution.Theme) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun KeysEditor(keys: EditableContribution.Keys) {
-    var editingCell by remember { mutableStateOf<EditableCell?>(null) }
+    // Store the row + index, not just the cell: the editor needs a deliberate remove action
+    // and a stale cell reference would survive a row edit.
+    var editingCell by remember { mutableStateOf<Pair<MutableList<EditableCell>, Int>?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (style in listOf("default", "arrows-only", "arrows-all", "all", "none")) {
@@ -263,20 +267,28 @@ private fun KeysEditor(keys: EditableContribution.Keys) {
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                .clickable { editingCell = cell }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
+                            // Only the label opens the cell editor. Delete is a separate,
+                            // clearly-sized button so a tap on a key can never delete it.
                             Text(
                                 cell.display.ifEmpty { if (cell.useMacro) cell.macro.take(10).ifEmpty { "macro" } else cell.key.ifEmpty { "?" } },
                                 style = MaterialTheme.typography.labelSmall,
                                 fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .clickable { editingCell = row to cellIndex }
+                                    .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
                             )
-                            Icon(
-                                Icons.Filled.Close, contentDescription = ZenStrings.REMOVE,
-                                modifier = Modifier.size(14.dp).clickable { row.removeAt(cellIndex) },
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            IconButton(
+                                onClick = { row.removeAt(cellIndex) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close, contentDescription = ZenStrings.REMOVE,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                     TextButton(onClick = { row.add(EditableCell(key = "ESC")) }) {
@@ -288,16 +300,21 @@ private fun KeysEditor(keys: EditableContribution.Keys) {
         OutlinedButton(onClick = { keys.rows.add(androidx.compose.runtime.mutableStateListOf(EditableCell(key = "ESC"))) }) {
             Text(ZenStrings.EDITOR_ADD_ROW)
         }
-        ExtraKeysPreview(keys.rows.map { row -> row.map { it.toKeyCell() } })
     }
-    editingCell?.let { cell ->
-        CellEditorDialog(cell = cell, onDismiss = { editingCell = null })
+    editingCell?.let { (row, index) ->
+        if (index < row.size) {
+            CellEditorDialog(
+                cell = row[index],
+                onRemove = { row.removeAt(index) },
+                onDismiss = { editingCell = null }
+            )
+        }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CellEditorDialog(cell: EditableCell, onDismiss: () -> Unit) {
+private fun CellEditorDialog(cell: EditableCell, onRemove: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(ZenStrings.EDITOR_KEY) },
@@ -345,7 +362,12 @@ private fun CellEditorDialog(cell: EditableCell, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(ZenStrings.CONFIRM) } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(ZenStrings.CONFIRM) } },
+        dismissButton = {
+            TextButton(onClick = { onRemove(); onDismiss() }) {
+                Text(ZenStrings.EDITOR_REMOVE_KEY, color = MaterialTheme.colorScheme.error)
+            }
+        }
     )
 }
 
@@ -366,21 +388,71 @@ private fun PresetEditor(preset: EditableContribution.Preset) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TerminalSettingsEditor(terminal: EditableContribution.Terminal) {
+private fun TerminalSettingsEditor(
+    terminal: EditableContribution.Terminal,
+    settingIds: Set<String>
+) {
     var addingKey by remember { mutableStateOf<String?>(null) }
     var addingValue by remember { mutableStateOf("") }
+    // Existing values are editable too — most plugins ship values a user wants to tune.
+    var editingKey by remember { mutableStateOf<String?>(null) }
+    var editingValue by remember { mutableStateOf("") }
+    var editingError by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         terminal.values.forEach { (key, value) ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f)) {
                     Text(key, style = MaterialTheme.typography.bodySmall,
                         fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface)
-                    Text(value, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        value,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable {
+                            editingKey = key
+                            editingValue = value
+                            editingError = false
+                        }
+                    )
+                }
+                IconButton(onClick = {
+                    editingKey = key
+                    editingValue = value
+                    editingError = false
+                }) {
+                    Icon(Icons.Filled.Edit, contentDescription = ZenStrings.EDITOR_EDIT_VALUE,
+                        modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = { terminal.values.remove(key) }) {
                     Icon(Icons.Filled.Close, contentDescription = ZenStrings.REMOVE, modifier = Modifier.size(16.dp))
                 }
+            }
+        }
+        editingKey?.let { key ->
+            OutlinedTextField(
+                editingValue,
+                onValueChange = { editingValue = it; editingError = false },
+                label = { Text(key) },
+                supportingText = { Text(TerminalSettingsSchema.VALUE_HINTS[key] ?: "") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                isError = editingError
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    if (TerminalSettingsSchema.isValidDocumentValue(key, editingValue, settingIds)) {
+                        terminal.values[key] = editingValue
+                        editingKey = null
+                    } else {
+                        editingError = true
+                    }
+                }) { Text(ZenStrings.SAVE) }
+                TextButton(onClick = { editingKey = null }) { Text(ZenStrings.CANCEL) }
+            }
+            if (editingError) {
+                Text(ZenStrings.EDITOR_INVALID_VALUE, color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
         val remaining = TerminalSettingsSchema.KEYS.filter { it !in terminal.values }
@@ -399,15 +471,15 @@ private fun TerminalSettingsEditor(terminal: EditableContribution.Terminal) {
                 singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
-                    if (TerminalSettingsSchema.validate(key, addingValue)) {
+                    if (TerminalSettingsSchema.isValidDocumentValue(key, addingValue, settingIds)) {
                         terminal.values[key] = addingValue
                         addingKey = null
                     }
                 }) { Text(ZenStrings.ADD) }
                 TextButton(onClick = { addingKey = null }) { Text(ZenStrings.CANCEL) }
             }
-            if (addingValue.isNotEmpty() && !TerminalSettingsSchema.validate(key, addingValue)) {
-                Text("Invalid value for $key", color = MaterialTheme.colorScheme.error,
+            if (addingValue.isNotEmpty() && !TerminalSettingsSchema.isValidDocumentValue(key, addingValue, settingIds)) {
+                Text(ZenStrings.EDITOR_INVALID_VALUE, color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall)
             }
         }

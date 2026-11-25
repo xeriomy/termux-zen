@@ -174,6 +174,26 @@ class PluginInstallerTest {
     }
 
     @Test
+    fun inPlaceEditCanRelabelArtifactAsLocal() {
+        installer.installDocument(
+            PluginTestUtils.document(contributions = JSONArray().put(PluginTestUtils.presetContribution())),
+            ZenApi.SOURCE_BUNDLED, true
+        )
+        // Default updates keep provenance; an explicit in-place editor save re-labels it.
+        installer.installDocument(
+            PluginTestUtils.document(version = "1.1.0", contributions = JSONArray().put(PluginTestUtils.presetContribution())),
+            ZenApi.SOURCE_LOCAL, false
+        )
+        assertEquals(ZenApi.SOURCE_BUNDLED, records().single().source)
+        installer.installDocument(
+            PluginTestUtils.document(version = "1.2.0", contributions = JSONArray().put(PluginTestUtils.presetContribution())),
+            ZenApi.SOURCE_LOCAL, false, forceSource = ZenApi.SOURCE_LOCAL
+        )
+        assertEquals(ZenApi.SOURCE_LOCAL, records().single().source)
+        assertTrue(records().single().enabled) // enabled state survives an in-place edit
+    }
+
+    @Test
     fun catalogIdentityMustMatch() {
         val identity = PluginInstaller.CatalogIdentity("com.example.other", Semver.parse("1.0.0")!!)
         expectFailure("catalog") {

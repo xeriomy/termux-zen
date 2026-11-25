@@ -137,7 +137,7 @@ is trusted to confirm installs, enables, uninstalls, and their own edits.
 | Another app opens the hub or installs silently | Activity `exported=false`; bundled installs confirmed; repository/import installs land disabled; no background auto-install |
 | Editor writes outside plugin storage | Editor saves go through the installer only; export writes to app cache `zen-exports/` and shares via a non-exported FileProvider with read-only grants |
 | Editor produces a document the host would reject | Save round-trips through the strict parser; Advanced JSON mode uses the same validator |
-| Editing someone else's installed plugin silently | In-place editing restricted to `local`/`import` sources; bundled/repository plugins require explicit Duplicate & edit into a new id |
+| Editing someone else's installed plugin silently | In-place editing of bundled/repository artifacts needs an explicit confirmation that states the copy stops matching the original; saving re-labels the record as `local` so provenance stays visible. Duplicate & edit remains available for keeping the original |
 | Id squatting via duplication | Copy ids derived deterministically (`.copy`, `.copy2`, …) and checked against the registry; id field locked when editing an existing plugin |
 | Uninstall destroys settings | Confirmation states only plugin files/registration are removed; cascades are confirmed |
 | Plugin name spoofs another | Unique ids displayed; names bounded, control chars rejected; users should check the id |
