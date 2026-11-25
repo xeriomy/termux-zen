@@ -125,6 +125,16 @@ Re-verified on the same aarch64 host: 85 pure-JVM tests,
 `:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 87 tests / 0 failures.
 Emulator/device interaction with the new controls still needs a CI APK and the §5 checklist.
 
+### 2.5 Bundled plugin set and expanded Coding Keys
+
+The two theme samples (Paper Light, Solarized Dark) were replaced by a single dark theme
+sample, **Midnight Dark** (`com.xeriomy.zen.midnightdark`), with a configurable cursor
+accent. **Coding Keys** was expanded to 1.1.0 with navigation, F1–F12, KEYBOARD, and macro
+rows alongside the original modifiers and PWD key, so the bundled sample exercises more of
+the extra-keys grammar. Both bundled artifacts were re-parsed and resolved by
+`BundledPluginsTest`; the emulator smoke now looks for Midnight Dark instead of the removed
+themes. Device interaction with the new key rows remains on the §5 checklist.
+
 ## 3. What local verification does not cover
 
 - Java sources (host hooks, termux-shared overlay) — compiled in CI.
@@ -151,20 +161,21 @@ restart persistence. It does not cover styling application/fallback, presets, un
 safety, invalid-state recovery or accessibility.
 
 1. Install the APK; terminal + bootstrap work; **zero** plugins installed.
-2. Settings → Plugins: empty state; Get plugins shows the three bundled plugins and the
+2. Settings → Plugins: empty state; Get plugins shows the two bundled plugins and the
    "no repository configured" notice.
-3. Install Solarized Dark (confirmed, active). With no `colors.properties`, colors change
-   on resume. Change its **Accent color** setting; cursor color updates. Disable; built-in
+3. Install Midnight Dark (confirmed, active). With no `colors.properties`, colors change
+   on resume. Change its **Cursor color** setting; cursor color updates. Disable; built-in
    colors return.
 4. Create `~/.termux/colors.properties`; the plugin theme is inert/overridden; user file wins.
-5. Install Coding Keys; extra-keys bar changes (no explicit `extra-keys`); toggle
-   **ALL-CAPS key labels**; terminal cursor becomes a blinking bar; scrollback grows.
-   Set `terminal-cursor-style` in `termux.properties`; the user value wins.
+5. Install Coding Keys; extra-keys bar changes (no explicit `extra-keys`): check the
+   navigation (HOME/PGUP), F1–F12, KEYBOARD and macro/PWD rows. Toggle **ALL-CAPS key
+   labels**; terminal cursor becomes a blinking bar; scrollback grows. Set
+   `terminal-cursor-style` in `termux.properties`; the user value wins.
 6. Add an explicit `extra-keys`; plugin keys become overridden.
 7. Create a plugin in the editor (theme + a color setting), save, enable, verify; edit it;
    duplicate a bundled plugin and edit the copy; export and re-import the ZIP.
-8. Install Paper Light while Solarized Dark is enabled: confirm the exclusive-swap
-   warning; the previous theme provider is disabled.
+8. Duplicate Midnight Dark and enable the local copy while the original is enabled:
+   confirm the exclusive-swap warning; the previous theme provider is disabled.
 9. Dependencies: install a preset-only base + a dependent plugin; disable the base and
    confirm the cascade warning and dependent disable; uninstall the base.
 10. Uninstall everything; confirm no `$HOME`/`.termux` file changed; entries gone after

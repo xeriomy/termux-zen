@@ -20,7 +20,7 @@ class BundledPluginsTest {
     @Test
     fun allBundledPluginsParseAndResolve() {
         val zips = assetsDir().listFiles { file -> file.name.endsWith(".zip") }!!
-        assertTrue("expected at least 3 bundled plugins", zips.size >= 3)
+        assertTrue("expected at least 2 bundled plugins", zips.size >= 2)
         for (zip in zips) {
             val manifest = PluginParser.parse(PluginArchive.readPluginJson(zip.readBytes()))
             val values = PluginSettings.effectiveValues(manifest, emptyMap())
@@ -31,10 +31,10 @@ class BundledPluginsTest {
     }
 
     @Test
-    fun solarizedDarkExposesAccentSetting() {
-        val zip = File(assetsDir(), "solarized-dark.zip")
+    fun midnightDarkExposesAccentSetting() {
+        val zip = File(assetsDir(), "midnight-dark.zip")
         val manifest = PluginParser.parse(PluginArchive.readPluginJson(zip.readBytes()))
-        assertEquals("com.xeriomy.zen.solarizeddark", manifest.id)
+        assertEquals("com.xeriomy.zen.midnightdark", manifest.id)
         val accent = manifest.settings.firstOrNull { it.id == "accent" }
         assertNotNull(accent)
         val resolved = PluginSettings.resolveContribution(
@@ -47,7 +47,14 @@ class BundledPluginsTest {
     fun codingKeysPackCombinesContributions() {
         val zip = File(assetsDir(), "coding-keys.zip")
         val manifest = PluginParser.parse(PluginArchive.readPluginJson(zip.readBytes()))
-        assertNotNull(manifest.extraKeys())
+        val keys = manifest.extraKeys()!!
+        assertNotNull(keys)
+        // The bundled sample bar demonstrates navigation, function, keyboard-toggle
+        // and macro cells, not just the four original modifier keys.
+        assertTrue(keys.rows.size >= 4)
+        assertTrue(keys.rows.any { row -> row.any { it.key == "KEYBOARD" } })
+        assertTrue(keys.rows.any { row -> row.any { it.key == "F12" } })
+        assertTrue(keys.rows.any { row -> row.any { it.macro != null } })
         assertNotNull(manifest.terminalSettings())
         val resolved = PluginSettings.resolveContribution(
             manifest.terminalSettings()!!, PluginSettings.effectiveValues(manifest, mapOf("all_caps" to "true"))

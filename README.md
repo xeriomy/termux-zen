@@ -70,7 +70,7 @@ User configuration always wins: a plugin theme applies only when
 is not set in `termux.properties`, and plugin terminal settings apply only to keys you
 have not set yourself. Uninstalling a plugin removes only its own files and registration.
 
-No repository URL or signing key is configured in this build; Solarized Dark, Paper Light
+No repository URL or signing key is configured in this build; Midnight Dark
 and Coding Keys are bundled and can be installed from **Get plugins**. Bundled plugins are
 not installed automatically. The format, threat model, test results, limitations and build
 prerequisites are in [`docs/plugins/README.md`](docs/plugins/README.md).

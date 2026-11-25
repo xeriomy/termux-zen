@@ -27,7 +27,7 @@ manual checklist remains pending.
 
 1. Build and install the debug APK (CI artifact or an x86_64 host; see TESTING.md).
 2. Open **Settings → Plugins**.
-3. **Get plugins** → install **Solarized Dark**, **Paper Light** or **Coding Keys**
+3. **Get plugins** → install **Midnight Dark** or **Coding Keys**
    (confirmed, then active). Or tap **+** to create your own plugin: pick a contribution
    type, edit colors/keys/presets/terminal settings, declare user settings, save.
 4. Tap a plugin for its detail screen: enable/disable, **generated settings form**,

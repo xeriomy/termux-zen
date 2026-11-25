@@ -276,8 +276,7 @@ for _ in $(seq 1 4); do
     sleep 1
 done
 assert_bundled_card "Coding Keys"
-assert_bundled_card "Paper Light"
-assert_bundled_card "Solarized Dark"
+assert_bundled_card "Midnight Dark"
 screenshot bundled-plugins
 
 say "install Coding Keys"
