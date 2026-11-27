@@ -144,8 +144,8 @@ authored by the plugin developer in `plugin.json`, not changed by a user from th
 editor. Drafts loaded from an installed artifact (including duplicates) are now
 schema-locked: name, id, version, author and description are read-only, the settings list is
 read-only (no add/edit/delete), and raw-JSON mode is hidden so the lock cannot be bypassed.
-Only contribution values stay editable; setting **values** continue to be changed on the
-detail screen's generated form. New-plugin authoring keeps all fields available.
+Only contribution values stay editable; setting **values** are changed in the plugin
+editor's generated form. New-plugin authoring keeps all fields available.
 `EditorDraftTest` covers both locks. Re-verified: 85 pure-JVM tests,
 `:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 89 tests / 0 failures.
 
@@ -153,10 +153,10 @@ detail screen's generated form. New-plugin authoring keeps all fields available.
 
 From the next round of device screenshots: the **Duplicate & edit** and **Export** buttons
 were removed from the detail screen (Edit and Uninstall remain), the enable switch now sits
-on the title row of the header card, and the Details block (version/author/source/id) moved
-directly below the header card. For a loaded draft the editor no longer shows the
+on the title row of the header card, and the Details block (version/author/source/id) sits
+inside that same card, together with the description. For a loaded draft the editor no longer shows the
 author-defined metadata block, the settings-schema list, the contribution delete buttons or
-**Add contribution**; only the contribution values the author declared remain editable. The
+**Add contribution**; only the declared contribution and setting values remain editable. The
 extra-keys style chips are labelled as the style used when no explicit `extra-keys` is set.
 
 The theme palette also failed to return to the built-in scheme after a theme plugin was
@@ -207,6 +207,43 @@ because the temporary jar directory (`.../tmp/opencode/pv`) is no longer present
 host; the Gradle app suite compiles and runs all of those core classes plus the new tests.
 Emulator smoke (including the renamed card/install flow) is CI-only here.
 
+### 2.9 Merged detail card, settings form moved into the editor
+
+From the next device screenshot: the header card, the Details block and the description were
+circled together ("I think we can merge those sections in details menu"), and the generated
+settings form was requested on the plugin's **Edit** screen — with the contribution and
+terminal-settings editors, not on the app's main Settings screen.
+
+Changes: `DetailScreen` now renders the title row (with the enable switch), id, status/type
+chips, Details (version/author/source/id) and the description inside **one** card, separated
+by a divider. The standalone Details heading, description paragraph and the whole Settings
+section were removed; contribution previews, dependencies, Edit and Uninstall are unchanged.
+`EditorScreen` renders the generated toggle/number/text/choice/color form plus **Reset to
+defaults** next to the contribution editors for installed plugins only. `EditorDraft.pluginId`
+points at the installed record (set by the edit/duplicate entry points via `from`); new-plugin
+drafts have no values form and keep the settings-schema designer. Effective values come from
+`PluginSettings.effectiveValues(installed.manifest, record.settings)`, and each change writes
+through `HubController.setSetting` / `resetSettings` immediately, exactly as before.
+
+Verification executed on the Termux/aarch64 host:
+
+```bash
+./gradlew --no-daemon -PcompileSdkVersion=36 \
+  -Pandroid.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2 \
+  :app:compileDebugKotlin :app:testDebugUnitTest :terminal-emulator:testDebugUnitTest \
+  --console=plain
+# BUILD SUCCESSFUL
+python3 scripts/check-unit-tests.py app/build/test-results/testDebugUnitTest --min-tests 104
+python3 scripts/check-unit-tests.py terminal-emulator/build/test-results/testDebugUnitTest --min-tests 146
+```
+
+Result: `:app:testDebugUnitTest` **104 tests, 0 skipped, 0 failures** (was 102; two new
+`EditorDraftTest` cases cover the installed-plugin id and the effective-value path used by
+the editor). `:terminal-emulator:testDebugUnitTest`
+**146 tests, 0 skipped, 0 failures**. `git diff --check` clean. The emulator smoke script now
+checks the merged card, then opens Edit and asserts the generated **ALL-CAPS key labels**
+setting and **Reset to defaults** there; that smoke and the §5 checklist are CI/device work.
+
 ## 3. What local verification does not cover
 
 - APK assembly, resource linking, manifest merge, dexing, lint and NDK builds — CI.
@@ -222,7 +259,7 @@ Emulator smoke (including the renamed card/install flow) is CI-only here.
 With SDK platform 36 + build-tools 36.0.0 + NDK 29.0.14206865 installed, no overrides:
 
 ```bash
-./gradlew :app:testDebugUnitTest          # full app suite (102 tests in this revision)
+./gradlew :app:testDebugUnitTest          # full app suite (104 tests in this revision)
 ./gradlew :terminal-emulator:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ./gradlew :app:lintDebug
@@ -238,8 +275,9 @@ safety, invalid-state recovery or accessibility.
 2. Settings → Plugins: empty state; Get plugins shows the two bundled plugins and the
    "no repository configured" notice.
 3. Install Midnight Dark (confirmed, active). With no `colors.properties`, colors change
-   on resume. Change its **Cursor color** setting; cursor color updates. Disable; built-in
-   colors return.
+   on resume. Open **Edit**, change its **Cursor color** setting there; the cursor color
+   updates immediately. **Reset to defaults** restores the author's default. Disable;
+   built-in colors return.
 4. Create `~/.termux/colors.properties`; the plugin theme is inert/overridden; user file wins.
 5. Install Dev Terminal; extra-keys bar changes (no explicit `extra-keys`): check the two
    rows (ESC/CTRL/ALT/SHIFT/BACKSLASH/UP/KEYBOARD and TAB/FN/HOME/END/LEFT/DOWN/RIGHT).
@@ -248,9 +286,10 @@ safety, invalid-state recovery or accessibility.
 6. Add an explicit `extra-keys`; plugin keys become overridden.
 7. Create a plugin in the editor (theme + a color setting), save, enable, verify. Open Edit on
    Midnight Dark: metadata and the settings list are absent, no **Add contribution**, no
-   contribution delete buttons, no **Advanced: edit JSON**; only contribution values can be
-   changed. Setting values are changed on the detail screen, not in the editor. The detail
-   screen shows only Edit and Uninstall, with the switch beside the title.
+   contribution delete buttons, no **Advanced: edit JSON**. Its generated setting values form
+   sits with the contribution editors; identity/schema stay locked. The detail screen shows
+   one merged card (title + switch, chips, Details, description), contribution previews,
+   dependencies and only Edit and Uninstall — no Settings section.
 8. Install Midnight Dark, confirm the palette changes, then uninstall it while returning to
    the terminal promptly: the built-in colors must come back. Installing a second theme while
    the first is enabled must still confirm the exclusive-swap warning.
@@ -269,7 +308,7 @@ Workflow: `.github/workflows/plugin-verification.yml` (push to `master`/`plugins
 PRs to `master`, `workflow_dispatch` once on the default branch).
 
 `build-and-test` (ubuntu-24.04, Temurin 17, SDK 36/build-tools 36/NDK r29): plugin tests →
-full app suite → gate `scripts/check-unit-tests.py --min-tests 100` (102 tests in this
+full app suite → gate `scripts/check-unit-tests.py --min-tests 104` (104 tests in this
 revision; the historical `FileReceiverActivityTest` Robolectric-teardown quarantine is still
 encoded and only matches its exact message) → emulator unit tests → `assembleDebug` →
 APK checksums → `lintDebug`. Artifacts: `termux-debug-apk`, `plugin-verification-reports`.
@@ -277,9 +316,10 @@ APK checksums → `lintDebug`. Artifacts: `termux-debug-apk`, `plugin-verificati
 `emulator-smoke` (API 34 x86_64, KVM enabled via `sudo chmod 0666 /dev/kvm`): fresh
 install → first launch/bootstrap → terminal command with zero plugins → Settings →
 Plugins → hub empty state → Get plugins (bundled + not-configured catalog) → install
-Dev Terminal via the confirmation dialog → registry check → detail screen shows the
-generated **ALL-CAPS key labels** setting and contribution previews → force-stop/relaunch
-persistence. Evidence artifact: screenshots, UI dumps, registry, logcat.
+Dev Terminal via the confirmation dialog → registry check → detail screen shows the merged
+header/Details/description card and contribution previews → Edit shows the generated
+**ALL-CAPS key labels** setting and **Reset to defaults** → force-stop/relaunch persistence.
+Evidence artifact: screenshots, UI dumps, registry, logcat.
 
 ### 6.1 v2 executed runs
 

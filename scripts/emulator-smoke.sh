@@ -315,15 +315,29 @@ done
 screenshot bundled-installed
 say "bundled plugin installed"
 
-say "plugin detail renders generated settings"
+say "plugin detail merges header, details and description"
 ui_tap_text "Back" 2
 sleep 1
 ui_tap_text "Dev Terminal" 3
 sleep 1
 ui_dump || die "could not dump the plugin detail screen"
 assert_ui_text "What it changes"
-assert_ui_text "ALL-CAPS key labels"
+assert_ui_text "Source"
 screenshot plugin-detail
+
+say "plugin editor renders generated settings"
+ui_tap_text "Edit" 2
+sleep 1
+ui_dump || die "could not dump the edit confirmation"
+assert_ui_text "Customize this plugin?"
+ui_tap_text "Edit" 2
+sleep 1
+ui_dump || die "could not dump the plugin editor"
+assert_ui_text "ALL-CAPS key labels"
+assert_ui_text "Reset to defaults"
+screenshot plugin-editor
+ui_tap_text "Back" 2
+sleep 1
 ui_tap_text "Back" 2
 sleep 1
 

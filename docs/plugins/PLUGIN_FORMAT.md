@@ -241,7 +241,8 @@ first for bundled/repository artifacts and saving re-labels the record as `local
 identity, version and the settings schema are author-defined in `plugin.json` and cannot be
 changed from the in-app editor (raw-JSON mode, metadata and settings are hidden for loaded
 plugins). Contributions cannot be added or removed from a loaded draft either; only their
-values are editable. The on-disk `source` values still include `local` copies created by
+values are editable, along with setting values in the editor's generated form (written to
+the registry, not to `plugin.json`). The on-disk `source` values still include `local` copies created by
 earlier builds (`<id>.copy`, `<id>.copy2`, …), whose contributions can be customized while
 their metadata and settings stay author-defined.
 The SHA-256 is

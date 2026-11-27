@@ -117,6 +117,8 @@ sealed class EditableContribution {
  */
 class EditorDraft(
     val originalId: String?,
+    /** Installed plugin whose setting values the editor writes through; null for new plugins. */
+    val pluginId: String?,
     id: String,
     name: String,
     version: String,
@@ -223,6 +225,7 @@ class EditorDraft(
     companion object {
         fun blank(): EditorDraft = EditorDraft(
             originalId = null,
+            pluginId = null,
             id = "com.example.myplugin",
             name = "My plugin",
             version = "1.0.0",
@@ -235,6 +238,7 @@ class EditorDraft(
 
         fun from(manifest: PluginManifest): EditorDraft = EditorDraft(
             originalId = manifest.id,
+            pluginId = manifest.id, // loaded from an installed artifact (edit or duplicate)
             id = manifest.id,
             name = manifest.name,
             version = manifest.version.raw,

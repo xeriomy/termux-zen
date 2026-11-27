@@ -30,11 +30,15 @@ manual checklist remains pending.
 3. **Get plugins** → install **Midnight Dark** or **Dev Terminal**
    (confirmed, then active). Or tap **+** to create your own plugin: pick a contribution
    type, edit colors/keys/presets/terminal settings, declare user settings, save.
-4. Tap a plugin for its detail screen: enable/disable switch beside the title,
-   **generated settings form**, contribution previews, dependencies, Edit (customize the
-   installed plugin's contribution values in place; confirmed for bundled/repository
-   plugins) and Uninstall. Uninstalling a theme restores the built-in palette.
-5. User configuration wins: `~/.termux/colors.properties` disables plugin themes, an
+4. Tap a plugin for its detail screen: one card with the enable switch beside the title,
+   status/type chips, Details (version/author/source/id) and the description, followed by
+   contribution previews, dependencies, Edit and Uninstall. Uninstalling a theme restores
+   the built-in palette.
+5. Tap **Edit** to customize the installed plugin's contribution values **and setting values**
+   in the editor (confirmed for bundled/repository plugins); changes to settings persist
+   immediately, and **Reset to defaults** clears overrides. Author-defined identity and the
+   settings schema stay locked.
+6. User configuration wins: `~/.termux/colors.properties` disables plugin themes, an
    explicit `extra-keys` overrides plugin keys, and any `termux.properties` key you set
    overrides the plugin's terminal settings.
 
@@ -57,8 +61,9 @@ Bundled plugins are not installed automatically, so uninstall stays permanent.
   exclusive theme/extra-keys providers; generation counter for cross-activity refresh.
 - Signed HTTPS catalog with pinned RSA key (≥2048-bit), artifact size/hash/identity checks;
   bundled assets trusted via the APK signature.
-- Compose hub (Material 3, dark): searchable installed list, browse, detail + settings,
-  editor; confirmation gates for cascades, exclusive swaps and uninstall.
+- Compose hub (Material 3, dark): searchable installed list, browse, merged detail card,
+  editor with contribution and setting-value forms; confirmation gates for cascades,
+  exclusive swaps and uninstall.
 - v1 → v2 migration at startup (best-effort, registry backup kept).
 - 85 pure-JVM core tests + existing app/emulator suites; x86_64 CI with APK, lint and an
   emulator smoke job covering the new hub.

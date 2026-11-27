@@ -75,7 +75,7 @@ object ZenStrings {
     const val EDITOR_AUTHOR = "Author"
     const val EDITOR_DESCRIPTION = "Description"
     const val EDITOR_METADATA_LOCKED = "Name, ID, version, author and description are defined by the plugin author in plugin.json. You can customize the contributions below."
-    const val EDITOR_SETTINGS_LOCKED = "Settings are defined by the plugin author in plugin.json. Change their values on the plugin's detail screen."
+    const val EDITOR_SETTINGS_LOCKED = "Settings are defined by the plugin author in plugin.json. Change their values in this editor, alongside the contributions."
     const val EDITOR_CONTRIBUTIONS = "Contributions"
     const val EDITOR_SETTINGS_SCHEMA = "User settings"
     const val EDITOR_ADD_CONTRIBUTION = "Add contribution"

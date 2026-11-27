@@ -95,6 +95,10 @@ fun EditorScreen(controller: HubController, draft: EditorDraft) {
                     Text(ZenStrings.EDITOR_ADD_CONTRIBUTION)
                 }
             }
+            // Setting values live with the other contribution values, not on the detail screen.
+            // A brand-new plugin has no installed record yet, so it gets the schema designer
+            // below instead of a values form.
+            SettingsValuesSection(controller, draft)
             if (!draft.schemaLocked) SettingsSchemaSection(draft)
             if (draft.dependencies.isNotEmpty()) {
                 SectionHeader(ZenStrings.DEPENDENCIES_TITLE)
@@ -522,6 +526,33 @@ private fun TerminalSettingsEditor(
                 Text(ZenStrings.EDITOR_INVALID_VALUE, color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall)
             }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- setting values (installed plugins)
+
+@Composable
+private fun SettingsValuesSection(controller: HubController, draft: EditorDraft) {
+    val pluginId = draft.pluginId ?: return // new plugins author the schema, they have no values yet
+    val installed = controller.findInstalled(pluginId) ?: return
+    if (draft.settings.isEmpty()) return
+    SectionHeader(ZenStrings.SETTINGS_TITLE)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(16.dp)) {
+            val values = installed.manifest?.let { manifest ->
+                PluginSettings.effectiveValues(manifest, installed.record.settings)
+            } ?: draft.settings.associate { it.id to it.defaultValue }
+            SettingsForm(
+                settings = draft.settings,
+                values = values,
+                onChange = { key, value -> controller.setSetting(pluginId, key, value) }
+            )
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { controller.resetSettings(pluginId) }) { Text(ZenStrings.RESET_SETTINGS) }
+            Text(ZenStrings.USER_CONFIG_WINS,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

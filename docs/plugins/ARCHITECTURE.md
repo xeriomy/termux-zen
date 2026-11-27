@@ -58,9 +58,9 @@ com.termux.app.plugins
 com.termux.app.plugins.ui   # Kotlin + Jetpack Compose (Material 3)
 ├── PluginHubActivity      # single activity; replaces the v1 XML tab manager
 ├── HubController          # navigation + state + async operations
-├── EditorDraft            # mutable editor model, validates via parser round-trip
-├── Screens                # installed list, browse (bundled + catalog), detail + settings
-├── EditorScreen           # metadata, contribution editors, settings designer, raw JSON
+├── EditorDraft            # mutable editor model + installed-plugin id, parser round-trip
+├── Screens                # installed list, browse (bundled + catalog), merged detail card
+├── EditorScreen           # metadata, contribution editors, setting values, schema designer, raw JSON
 ├── Components             # rows, chips, previews, settings form, HSV color picker
 ├── ZenTheme / ZenStrings  # dark terminal-matching theme; UI strings
 ```
@@ -160,24 +160,26 @@ closed for that generation.
   a ZIP (SAF) and open Get plugins.
 - **Get plugins**: bundled section (APK-signed artifacts) and repository section
   (not-configured / loading / error+retry / signed entries with Install/Update).
-- **Detail**: header + enable switch (confirmation when a cascade or exclusive swap would
-  occur), contribution previews (palette, key rows, presets, settings values), the
-  plugin's **generated settings form**, dependencies with live state, metadata, and
-  Edit (in place for any source, confirmed for bundled/repository; contributions only) and
-  Uninstall (confirmed), with the enable switch on the title row and Details
-  (version/author/source/id) immediately below the header card. Duplicate & edit and Export
-  are not shown.
+- **Detail**: one merged header card containing the name, enable switch (confirmation when a
+  cascade or exclusive swap would occur), status/type chips, Details (version/author/source/id)
+  and the description. Below it: contribution previews (palette, key rows, presets, settings
+  values), dependencies with live state, Edit (in place for any source, confirmed for
+  bundled/repository; contributions and setting values only) and Uninstall (confirmed).
+  Duplicate & edit and Export are not shown.
 - **Editor**: metadata form and settings-schema designer (toggle/number/text/choice/color)
   plus raw-JSON mode are available only when authoring a **new** plugin. A draft loaded from
   an installed artifact is schema-locked: metadata and the settings list are not shown at all,
   and raw-JSON mode is unavailable. Contribution add/delete buttons are hidden too, because
-  contributions belong to the plugin author's JSON. Only the per-type contribution value
-  editors remain usable (18-color theme editor with HSV picker, extra-keys row/cell builder
+  contributions belong to the plugin author's JSON. The per-type contribution value editors
+  remain usable (18-color theme editor with HSV picker, extra-keys row/cell builder
   with click-to-edit keys, a separate delete button and a **More** chip toggle that reveals
   KEYBOARD, F1–F12 and other named keys, a macro send-on-press switch, preset fields, terminal-settings
-  key/value editor with editable values and `${settings.id}` tokens).
-  Setting **values** are changed on the detail screen's generated form. Saving round-trips
-  through the strict parser, so the editor cannot produce a document the host would reject.
+  key/value editor with editable values and `${settings.id}` tokens). Next to those editors,
+  the installed plugin's **generated settings form** (with Reset to defaults) edits setting
+  **values**, writing through `HubController.setSetting`/`resetSettings` immediately; the
+  draft's `pluginId` identifies the installed record. New-plugin authoring has no values form
+  because no installed record exists yet. Saving round-trips through the strict parser, so the
+  editor cannot produce a document the host would reject.
 
 All operations run on the manager's single background executor; results post to the main
 thread; a runtime change listener refreshes the UI. Snackbars report success/failure with

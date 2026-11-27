@@ -27,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -370,6 +371,8 @@ fun DetailScreen(controller: HubController, id: String) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
+            // Header, Details and description share one card: the details belong to the
+            // plugin's identity, not to a separate screen section.
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -401,49 +404,27 @@ fun DetailScreen(controller: HubController, id: String) {
                         Text(item.loadError, color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall)
                     }
+                    if (manifest != null) {
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(Modifier.height(8.dp))
+                        DetailLine(ZenStrings.VERSION_LABEL, item.record.version.raw)
+                        DetailLine(ZenStrings.AUTHOR_LABEL, manifest.author ?: "—")
+                        DetailLine(ZenStrings.SOURCE_LABEL, sourceLabel(item.record.source))
+                        DetailLine(ZenStrings.ID_LABEL, item.record.id)
+                        if (!manifest.description.isNullOrEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(manifest.description, style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
-            }
-        }
-        if (manifest != null) {
-            item { SectionHeader(ZenStrings.DETAILS_TITLE) }
-            item {
-                Column {
-                    DetailLine(ZenStrings.VERSION_LABEL, item.record.version.raw)
-                    DetailLine(ZenStrings.AUTHOR_LABEL, manifest.author ?: "—")
-                    DetailLine(ZenStrings.SOURCE_LABEL, sourceLabel(item.record.source))
-                    DetailLine(ZenStrings.ID_LABEL, item.record.id)
-                }
-            }
-        }
-        if (manifest?.description != null) {
-            item {
-                Text(manifest.description, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (manifest != null) {
             item { SectionHeader(ZenStrings.CONTRIBUTIONS_TITLE) }
             for (contribution in manifest.contributions) {
                 item { ContributionPreview(contribution) }
-            }
-            if (manifest.settings.isNotEmpty()) {
-                item { SectionHeader(ZenStrings.SETTINGS_TITLE) }
-                item {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                        Column(Modifier.padding(16.dp)) {
-                            SettingsForm(
-                                settings = manifest.settings,
-                                values = com.termux.app.plugins.PluginSettings.effectiveValues(manifest, item.record.settings),
-                                onChange = { key, value -> controller.setSetting(id, key, value) }
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = { controller.resetSettings(id) }) { Text(ZenStrings.RESET_SETTINGS) }
-                            Text(ZenStrings.USER_CONFIG_WINS,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
             }
             if (manifest.dependencies.isNotEmpty()) {
                 item { SectionHeader(ZenStrings.DEPENDENCIES_TITLE) }

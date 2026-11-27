@@ -16,8 +16,9 @@ Compose hub). Audience: maintainers.
   designer) or raw JSON with the host parser as validator; edit contribution values of
   installed plugins; import ZIPs via SAF. Duplicate/edit and export are not surfaced in the UI.
 - **Compose hub** (Material 3, dark): searchable installed list with switches and status
-  chips, Get plugins (bundled + signed catalog), detail screen with previews and generated
-  settings, confirmation gates for cascades/exclusive swaps/uninstall.
+  chips, Get plugins (bundled + signed catalog), detail screen with a merged header/details
+  card and previews, editor with the generated settings form, confirmation gates for
+  cascades/exclusive swaps/uninstall.
 - **Kept from v1**: strict validation, bounded in-memory ZIP reading, app-private storage
   with hashes and atomic commits, fail-closed runtime, dependency cascades and cycle
   detection, exclusive theme/extra-keys providers, user-configuration precedence, signed
