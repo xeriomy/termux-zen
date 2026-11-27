@@ -9,7 +9,8 @@ Goals:
 
 - Keep the app fully functional with zero installed or enabled plugins.
 - Let anyone **add, edit, remove** plugins: install from bundled/catalog/file, create and
-  edit plugins in-app, duplicate any plugin into an editable copy, export/share, uninstall.
+  edit plugins in-app (contribution values only), uninstall. Duplication and export are not
+  surfaced in the UI; import remains available from the hub.
 - Let every plugin declare **user settings** that the host renders and validates generically.
 - Let one plugin combine **multiple typed contributions** (theme + keys + presets + terminal
   settings), instead of v1's single fixed type.
@@ -100,8 +101,10 @@ contributes nothing this generation and is reported `Invalid(reason)`; the failu
 persisted as a disable. Exclusive types (`theme`, `extra_keys`): first valid provider in
 id order wins; later providers are `Overridden(byId)`. `terminal_settings` merge in id
 order (later wins). Presets are canonicalized under `$HOME` and listed only when the
-directory exists. Each reload bumps a generation counter; `TermuxActivity.onResume`
-re-applies styling when it changed while another activity was on top.
+directory exists. Each reload bumps a generation counter; `TermuxActivity` re-applies
+styling on `onResume()` and via a runtime change listener while visible, so a reload that
+finishes after the activity resumes (for example, uninstalling a theme) still restores the
+built-in palette.
 
 Install/update: validate document (and signed-catalog identity when applicable) → check
 downgrade/dependencies/cycles → exclusive swap when enabling (which may never disable the
@@ -152,16 +155,18 @@ closed for that generation.
 - **Detail**: header + enable switch (confirmation when a cascade or exclusive swap would
   occur), contribution previews (palette, key rows, presets, settings values), the
   plugin's **generated settings form**, dependencies with live state, metadata, and
-  Edit (in place for any source, confirmed for bundled/repository; contributions only) /
-  Duplicate & edit / Export / Uninstall (confirmed).
+  Edit (in place for any source, confirmed for bundled/repository; contributions only) and
+  Uninstall (confirmed), with the enable switch on the title row and Details
+  (version/author/source/id) immediately below the header card. Duplicate & edit and Export
+  are not shown.
 - **Editor**: metadata form and settings-schema designer (toggle/number/text/choice/color)
   plus raw-JSON mode are available only when authoring a **new** plugin. A draft loaded from
-  an installed artifact (including a duplicate) is schema-locked: name, id, version, author,
-  description and the settings list are read-only, because they belong to the plugin author's
-  JSON, and raw-JSON mode is unavailable so the lock cannot be bypassed. Only the per-type
-  contribution editors remain usable (18-color theme editor with HSV picker, extra-keys
-  row/cell builder with click-to-edit keys and a separate delete button, preset fields,
-  terminal-settings key/value editor with editable values and `${settings.id}` tokens).
+  an installed artifact is schema-locked: metadata and the settings list are not shown at all,
+  and raw-JSON mode is unavailable. Contribution add/delete buttons are hidden too, because
+  contributions belong to the plugin author's JSON. Only the per-type contribution value
+  editors remain usable (18-color theme editor with HSV picker, extra-keys row/cell builder
+  with click-to-edit keys and a separate delete button, preset fields, terminal-settings
+  key/value editor with editable values and `${settings.id}` tokens).
   Setting **values** are changed on the detail screen's generated form. Saving round-trips
   through the strict parser, so the editor cannot produce a document the host would reject.
 

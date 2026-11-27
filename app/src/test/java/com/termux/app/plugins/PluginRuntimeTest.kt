@@ -48,6 +48,17 @@ class PluginRuntimeTest {
     }
 
     @Test
+    fun uninstalledThemeContributesNothingAndBumpsGeneration() {
+        installTheme("com.example.dark")
+        assertNotNull(runtime.getThemeProperties())
+        val generation = runtime.getGeneration()
+        installer.uninstall("com.example.dark")
+        assertNull(runtime.getThemeProperties())
+        assertNull(runtime.snapshot().themeProviderId)
+        assertTrue(runtime.getGeneration() > generation)
+    }
+
+    @Test
     fun disabledThemeContributesNothing() {
         installTheme("com.example.dark", enabled = false)
         assertNull(runtime.getThemeProperties())

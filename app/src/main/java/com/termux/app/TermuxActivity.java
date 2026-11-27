@@ -138,6 +138,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private int mLastPluginGeneration = -1;
 
     /**
+     * Plugin operations run on a background executor, so their runtime reload can land after
+     * this activity has already resumed. React to the change while visible rather than only
+     * comparing generations in onResume(), otherwise a removed theme keeps its colors.
+     */
+    private Runnable mPluginStateListener;
+
+    /**
      * The termux sessions list controller.
      */
     TermuxSessionsListViewController mTermuxSessionListViewController;
@@ -248,6 +255,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setTermuxTerminalViewAndClients();
 
+        mPluginStateListener = () -> runOnUiThread(this::applyPluginStateIfChanged);
+        PluginManager.addChangeListener(mPluginStateListener);
+
         setTerminalToolbarView(savedInstanceState);
 
         setSettingsButtonView();
@@ -324,13 +334,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // notification with the crash details if it did
         TermuxCrashUtils.notifyAppCrashFromCrashLogFile(this, LOG_TAG);
 
-        // The plugin manager is another activity, so the styling broadcast sent while it was on
-        // top is not delivered here. Re-apply active plugin state when enabled/disabled meanwhile.
+        // The plugin manager is another activity, so changes made there are picked up here by
+        // comparing generations (and by the change listener while this activity is visible).
+        applyPluginStateIfChanged();
         PluginRuntime pluginRuntime = PluginManager.getRuntime();
-        int pluginGeneration = pluginRuntime == null ? 0 : pluginRuntime.getGeneration();
-        if (mLastPluginGeneration != -1 && pluginGeneration != mLastPluginGeneration)
-            reloadActivityStyling(false);
-        mLastPluginGeneration = pluginGeneration;
+        mLastPluginGeneration = pluginRuntime == null ? 0 : pluginRuntime.getGeneration();
 
         mIsOnResumeAfterOnCreate = false;
     }
@@ -362,6 +370,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         super.onDestroy();
 
         Logger.logDebug(LOG_TAG, "onDestroy");
+
+        if (mPluginStateListener != null) {
+            PluginManager.removeChangeListener(mPluginStateListener);
+            mPluginStateListener = null;
+        }
 
         if (mIsInvalidState) return;
 
@@ -1006,6 +1019,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         PluginRuntime runtime = PluginManager.getRuntime();
         return runtime == null ? java.util.Collections.<PluginRuntime.SessionPreset>emptyList()
             : runtime.getSessionPresets();
+    }
+
+    /** Re-apply plugin styling when a plugin was installed, removed, enabled or disabled. */
+    private void applyPluginStateIfChanged() {
+        if (mIsInvalidState || !mIsVisible) return;
+        PluginRuntime runtime = PluginManager.getRuntime();
+        int generation = runtime == null ? 0 : runtime.getGeneration();
+        if (mLastPluginGeneration != -1 && generation != mLastPluginGeneration) {
+            mLastPluginGeneration = generation;
+            reloadActivityStyling(false);
+        }
     }
 
     private void reloadActivityStyling(boolean recreateActivity) {

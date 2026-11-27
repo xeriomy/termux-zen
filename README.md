@@ -60,8 +60,8 @@ the app renders automatically and wires into the plugin's values.
 Everything is data. Plugins contain no Java/Kotlin/DEX/native code or scripts and cannot
 execute commands. Under **Settings → Plugins** you can install, enable/disable, configure,
 **create your own plugins with a built-in editor** (theme color picker, key-layout builder,
-settings designer, or raw JSON), duplicate any plugin into an editable copy, and
-import/export plugins as ZIP files. Catalog artifacts are authenticated by a signed index;
+settings designer, or raw JSON), and import plugins as ZIP files. Catalog artifacts are
+authenticated by a signed index;
 bundled plugins are covered by the APK signature. Plugin state lives only in the app's
 private files directory.
 

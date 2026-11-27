@@ -372,24 +372,9 @@ fun DetailScreen(controller: HubController, id: String) {
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(16.dp)) {
-                    Text(manifest?.name ?: id, style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface)
-                    Spacer(Modifier.height(4.dp))
-                    Text(id, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        StatusChip(item.status)
-                        manifest?.contributionTypes?.forEach { TypeChip(it) }
-                    }
-                    Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            if (item.record.enabled) ZenStrings.DISABLE_PLUGIN else ZenStrings.ENABLE_PLUGIN,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
+                        Text(manifest?.name ?: id, style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                         Switch(
                             checked = item.record.enabled,
                             onCheckedChange = { target ->
@@ -397,6 +382,14 @@ fun DetailScreen(controller: HubController, id: String) {
                                 else controller.toggle(id, target)
                             }
                         )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(id, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        StatusChip(item.status)
+                        manifest?.contributionTypes?.forEach { TypeChip(it) }
                     }
                     if (item.status is PluginRuntime.Status.Invalid) {
                         Spacer(Modifier.height(8.dp))
@@ -408,6 +401,17 @@ fun DetailScreen(controller: HubController, id: String) {
                         Text(item.loadError, color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
+        }
+        if (manifest != null) {
+            item { SectionHeader(ZenStrings.DETAILS_TITLE) }
+            item {
+                Column {
+                    DetailLine(ZenStrings.VERSION_LABEL, item.record.version.raw)
+                    DetailLine(ZenStrings.AUTHOR_LABEL, manifest.author ?: "—")
+                    DetailLine(ZenStrings.SOURCE_LABEL, sourceLabel(item.record.source))
+                    DetailLine(ZenStrings.ID_LABEL, item.record.id)
                 }
             }
         }
@@ -460,36 +464,15 @@ fun DetailScreen(controller: HubController, id: String) {
                     }
                 }
             }
-            item { SectionHeader(ZenStrings.DETAILS_TITLE) }
-            item {
-                Column {
-                    DetailLine(ZenStrings.VERSION_LABEL, item.record.version.raw)
-                    DetailLine(ZenStrings.AUTHOR_LABEL, manifest.author ?: "—")
-                    DetailLine(ZenStrings.SOURCE_LABEL, sourceLabel(item.record.source))
-                    DetailLine(ZenStrings.ID_LABEL, item.record.id)
-                }
-            }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    // Any installed plugin can be customized in place; duplicate stays available
-                    // when the user wants to keep the original alongside their changes.
+                    // Any installed plugin can be customized in place; duplication and export
+                    // are intentionally not offered from the detail screen.
                     Button(onClick = {
                         if (item.record.source in ZenApi.EDITABLE_SOURCES) controller.startEdit(item)
                         else confirmEdit = true
                     }, modifier = Modifier.weight(1f)) {
                         Text(ZenStrings.EDIT_PLUGIN)
-                    }
-                    OutlinedButton(onClick = { controller.duplicateAndEdit(id) }, modifier = Modifier.weight(1f)) {
-                        Text(ZenStrings.DUPLICATE_PLUGIN, maxLines = 1)
-                    }
-                }
-            }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { controller.export(id) }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.height(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(ZenStrings.EXPORT_PLUGIN)
                     }
                     OutlinedButton(
                         onClick = { confirmUninstall = true },

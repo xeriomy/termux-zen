@@ -72,7 +72,9 @@ fun EditorScreen(controller: HubController, draft: EditorDraft) {
         if (draft.jsonMode) {
             JsonEditorSection(draft)
         } else {
-            MetadataSection(draft)
+            // Author-defined metadata and settings are not shown for an installed plugin:
+            // users can only tune the contribution values the author declared.
+            if (!draft.schemaLocked) MetadataSection(draft)
             SectionHeader(ZenStrings.EDITOR_CONTRIBUTIONS)
             if (draft.contributions.isEmpty()) {
                 Text(ZenStrings.EDITOR_NO_CONTRIBUTIONS,
@@ -82,12 +84,14 @@ fun EditorScreen(controller: HubController, draft: EditorDraft) {
             draft.contributions.forEachIndexed { index, contribution ->
                 ContributionEditorCard(draft, index, contribution)
             }
-            OutlinedButton(onClick = { showAddContribution = true }) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(ZenStrings.EDITOR_ADD_CONTRIBUTION)
+            if (!draft.schemaLocked) {
+                OutlinedButton(onClick = { showAddContribution = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(ZenStrings.EDITOR_ADD_CONTRIBUTION)
+                }
             }
-            SettingsSchemaSection(draft)
+            if (!draft.schemaLocked) SettingsSchemaSection(draft)
             if (draft.dependencies.isNotEmpty()) {
                 SectionHeader(ZenStrings.DEPENDENCIES_TITLE)
                 Text(
@@ -188,9 +192,13 @@ private fun ContributionEditorCard(draft: EditorDraft, index: Int, contribution:
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TypeChip(contribution.type)
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { draft.contributions.removeAt(index) }) {
-                    Icon(Icons.Filled.Delete, contentDescription = ZenStrings.REMOVE,
-                        tint = MaterialTheme.colorScheme.error)
+                // Contributions belong to the plugin author; a loaded draft may tune their
+                // values but must not drop a contribution the author declared.
+                if (!draft.schemaLocked) {
+                    IconButton(onClick = { draft.contributions.removeAt(index) }) {
+                        Icon(Icons.Filled.Delete, contentDescription = ZenStrings.REMOVE,
+                            tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -257,6 +265,8 @@ private fun KeysEditor(keys: EditableContribution.Keys) {
     // and a stale cell reference would survive a row edit.
     var editingCell by remember { mutableStateOf<Pair<MutableList<EditableCell>, Int>?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(ZenStrings.EDITOR_KEYS_STYLE, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (style in listOf("default", "arrows-only", "arrows-all", "all", "none")) {
                 FilterChip(selected = keys.style == style, onClick = { keys.style = style }, label = { Text(style) })

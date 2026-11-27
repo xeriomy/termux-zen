@@ -13,8 +13,8 @@ Compose hub). Audience: maintainers.
   post-resolution re-validation.
 - **In-app authoring**: create plugins with visual editors (HSV color picker + live palette
   preview, key-row builder with popups, preset fields, terminal-settings picker, settings
-  designer) or raw JSON with the host parser as validator; edit local/imported plugins;
-  duplicate any plugin into an editable copy; export/share ZIPs; import ZIPs via SAF.
+  designer) or raw JSON with the host parser as validator; edit contribution values of
+  installed plugins; import ZIPs via SAF. Duplicate/edit and export are not surfaced in the UI.
 - **Compose hub** (Material 3, dark): searchable installed list with switches and status
   chips, Get plugins (bundled + signed catalog), detail screen with previews and generated
   settings, confirmation gates for cascades/exclusive swaps/uninstall.
@@ -55,7 +55,8 @@ Compose hub). Audience: maintainers.
 ### M1 — Device proof
 - Run the manual checklist (TESTING.md) on API 21/29/34 devices: theme/keys/preset/
   terminal-settings application and precedence, settings changes live-reloading, editor
-  create/edit/duplicate/export/import round-trip, TalkBack and large font, process death.
+  create/edit/import round-trip, theme uninstall restoring defaults, TalkBack and large
+  font, process death.
 - Record APK hash + CI run ids in TESTING.md.
 
 ### M2 — Repository operations
@@ -92,6 +93,6 @@ Compose hub). Audience: maintainers.
 - Reproducible release APK from a clean checkout on a supported host.
 - Device checklist green on at least API 21, 29, 34.
 - CI green: full app suite + emulator suite + lint + emulator smoke, with recorded hashes.
-- A user can install, create, edit, configure, enable/disable, update, export, import and
-  uninstall without any write outside app-private plugin storage.
+- A user can install, create, edit, configure, enable/disable, update, import and uninstall
+  without any write outside app-private plugin storage.
 - Threat model re-reviewed after device testing (crash window, same-UID boundary, editor).

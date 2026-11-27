@@ -86,6 +86,7 @@ object ZenStrings {
     const val EDITOR_VALID = "Document is valid."
     const val EDITOR_PICK_COLOR = "Pick color"
     const val EDITOR_HEX = "Hex"
+    const val EDITOR_KEYS_STYLE = "Extra-keys style (when no explicit extra-keys is set)"
     const val EDITOR_KEY = "Key"
     const val EDITOR_MACRO = "Macro"
     const val EDITOR_DISPLAY = "Label"

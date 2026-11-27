@@ -228,9 +228,11 @@ cannot be installed.
 ZIP). Any installed plugin's contributions can be customized in place; the hub confirms
 first for bundled/repository artifacts and saving re-labels the record as `local`. Plugin
 identity, version and the settings schema are author-defined in `plugin.json` and cannot be
-changed from the in-app editor (raw-JSON mode is hidden for loaded plugins). Bundled/repository
-plugins can also be duplicated into a separate `local` copy (`<id>.copy`, `<id>.copy2`, …),
-whose contributions can be customized while its metadata and settings stay author-defined.
+changed from the in-app editor (raw-JSON mode, metadata and settings are hidden for loaded
+plugins). Contributions cannot be added or removed from a loaded draft either; only their
+values are editable. The on-disk `source` values still include `local` copies created by
+earlier builds (`<id>.copy`, `<id>.copy2`, …), whose contributions can be customized while
+their metadata and settings stay author-defined.
 The SHA-256 is
 rechecked on every load; modified files make the plugin invalid. Registry writes are
 atomic; unreadable registries are quarantined, never silently overwritten.

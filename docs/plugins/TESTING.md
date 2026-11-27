@@ -99,9 +99,9 @@ guards the escaped pattern, since JVM-only tests cannot catch this engine differ
 Re-verified on a real Termux/aarch64 host (not the PRoot host of §1) with `openjdk-17`,
 aapt2 2.20, SDK platform 36 + build-tools 36.0.0 and
 `-Pandroid.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2`:
-85 pure-JVM tests, `:app:compileDebugKotlin` BUILD SUCCESSFUL,
-`:app:testDebugUnitTest` 89 tests / 0 failures, `:terminal-emulator:testDebugUnitTest`
-145 tests / 0 failures. Without the override, AGP's Maven aapt2 cannot execute on
+86 pure-JVM tests, `:app:compileDebugKotlin` BUILD SUCCESSFUL,
+`:app:testDebugUnitTest` 90 tests / 0 failures, `:terminal-emulator:testDebugUnitTest`
+146 tests / 0 failures. Without the override, AGP's Maven aapt2 cannot execute on
 aarch64. APK assembly and lint remain CI-only here: `ndk-build` reports
 `Unknown host CPU architecture: aarch64` (NDK r29 and r30 ship only `linux-x86_64`
 prebuilts).
@@ -147,6 +147,23 @@ detail screen's generated form. New-plugin authoring keeps all fields available.
 `EditorDraftTest` covers both locks. Re-verified: 85 pure-JVM tests,
 `:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 89 tests / 0 failures.
 
+### 2.7 Detail/editor simplification and theme removal
+
+From the next round of device screenshots: the **Duplicate & edit** and **Export** buttons
+were removed from the detail screen (Edit and Uninstall remain), the enable switch now sits
+on the title row of the header card, and the Details block (version/author/source/id) moved
+directly below the header card. For a loaded draft the editor no longer shows the
+author-defined metadata block, the settings-schema list, the contribution delete buttons or
+**Add contribution**; only the contribution values the author declared remain editable. The
+extra-keys style chips are labelled as the style used when no explicit `extra-keys` is set.
+
+The theme palette also failed to return to the built-in scheme after a theme plugin was
+uninstalled: a plugin reload can finish after `TermuxActivity` has already resumed, so the
+generation check in `onResume()` missed it. `TermuxActivity` now subscribes to runtime
+change notifications while visible and re-applies styling on every generation change;
+`PluginRuntimeTest` covers the runtime side and `TerminalColorSchemeTest` covers palette
+reset with empty properties.
+
 ## 3. What local verification does not cover
 
 - Java sources (host hooks, termux-shared overlay) — compiled in CI.
@@ -184,13 +201,14 @@ safety, invalid-state recovery or accessibility.
    labels**; terminal cursor becomes a blinking bar; scrollback grows. Set
    `terminal-cursor-style` in `termux.properties`; the user value wins.
 6. Add an explicit `extra-keys`; plugin keys become overridden.
-7. Create a plugin in the editor (theme + a color setting), save, enable, verify; edit its
-   contribution colors only — name/ID/version/author/description and the settings list must
-   be read-only, with no **Advanced: edit JSON** button; duplicate a bundled plugin and edit
-   the copy's contributions; export and re-import the ZIP. Setting values are changed on the
-   detail screen, not in the editor.
-8. Duplicate Midnight Dark and enable the local copy while the original is enabled:
-   confirm the exclusive-swap warning; the previous theme provider is disabled.
+7. Create a plugin in the editor (theme + a color setting), save, enable, verify. Open Edit on
+   Midnight Dark: metadata and the settings list are absent, no **Add contribution**, no
+   contribution delete buttons, no **Advanced: edit JSON**; only contribution values can be
+   changed. Setting values are changed on the detail screen, not in the editor. The detail
+   screen shows only Edit and Uninstall, with the switch beside the title.
+8. Install Midnight Dark, confirm the palette changes, then uninstall it while returning to
+   the terminal promptly: the built-in colors must come back. Installing a second theme while
+   the first is enabled must still confirm the exclusive-swap warning.
 9. Dependencies: install a preset-only base + a dependent plugin; disable the base and
    confirm the cascade warning and dependent disable; uninstall the base.
 10. Uninstall everything; confirm no `$HOME`/`.termux` file changed; entries gone after
@@ -206,7 +224,7 @@ Workflow: `.github/workflows/plugin-verification.yml` (push to `master`/`plugins
 PRs to `master`, `workflow_dispatch` once on the default branch).
 
 `build-and-test` (ubuntu-24.04, Temurin 17, SDK 36/build-tools 36/NDK r29): plugin tests →
-full app suite → gate `scripts/check-unit-tests.py --min-tests 89` (85 plugin + 4 app
+full app suite → gate `scripts/check-unit-tests.py --min-tests 90` (86 plugin + 4 app
 tests; the historical `FileReceiverActivityTest` Robolectric-teardown quarantine is still
 encoded and only matches its exact message) → emulator unit tests → `assembleDebug` →
 APK checksums → `lintDebug`. Artifacts: `termux-debug-apk`, `plugin-verification-reports`.

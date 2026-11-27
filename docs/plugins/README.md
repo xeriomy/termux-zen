@@ -30,10 +30,10 @@ manual checklist remains pending.
 3. **Get plugins** → install **Midnight Dark** or **Coding Keys**
    (confirmed, then active). Or tap **+** to create your own plugin: pick a contribution
    type, edit colors/keys/presets/terminal settings, declare user settings, save.
-4. Tap a plugin for its detail screen: enable/disable, **generated settings form**,
-   contribution previews, dependencies, Edit (customize the installed plugin in place;
-   confirmed for bundled/repository plugins; contributions only) / Duplicate & edit /
-   Export / Uninstall.
+4. Tap a plugin for its detail screen: enable/disable switch beside the title,
+   **generated settings form**, contribution previews, dependencies, Edit (customize the
+   installed plugin's contribution values in place; confirmed for bundled/repository
+   plugins) and Uninstall. Uninstalling a theme restores the built-in palette.
 5. User configuration wins: `~/.termux/colors.properties` disables plugin themes, an
    explicit `extra-keys` overrides plugin keys, and any `termux.properties` key you set
    overrides the plugin's terminal settings.
@@ -50,7 +50,7 @@ Bundled plugins are not installed automatically, so uninstall stays permanent.
 - In-app editor: visual theme editor with HSV color picker + live preview, extra-keys
   row/cell builder with popups, preset fields, terminal-settings picker, settings designer,
   and an advanced raw-JSON mode validated by the host parser.
-- Duplicate any plugin into an editable local copy; export/share ZIPs; import ZIPs (SAF).
+- Import ZIPs (SAF). Duplicate/edit and export are not offered in the UI.
 - Strict validation everywhere; bounded in-memory ZIP reading; app-private storage with
   SHA-256 rechecks, atomic registry writes, quarantine, staged commits and rollback.
 - Fail-closed runtime; dependency floors, cycle detection, cascading disable/uninstall;

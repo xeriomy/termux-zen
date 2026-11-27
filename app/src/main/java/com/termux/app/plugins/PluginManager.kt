@@ -68,12 +68,14 @@ object PluginManager {
     @JvmStatic
     fun getStore(): PluginStore? = if (initialized) store else null
 
-    /** Listeners fire on the main thread after every runtime reload. */
+    /** Listeners fire after every runtime reload; Java host hooks call these statically. */
+    @JvmStatic
     fun addChangeListener(listener: Runnable) {
         listeners.add(listener)
         if (initialized) runtime.addChangeListener(listener)
     }
 
+    @JvmStatic
     fun removeChangeListener(listener: Runnable) {
         listeners.remove(listener)
         if (initialized) runtime.removeChangeListener(listener)
