@@ -25,7 +25,9 @@ resource tables of `android-35`/`android-36` (`RES_TABLE_TYPE_TYPE entry offsets
 actual entry data`), so `processDebugResources` — and therefore full unit-test/APK tasks —
 fail locally regardless of the override. Google ships no aarch64 Linux aapt2. The v1-era
 Termux-prefix aapt2 (`/data/data/com.termux/files/usr/bin/aapt2`) is not present on this
-host. Local verification therefore uses the two paths in §2; the full build runs in CI (§6).
+host. Local verification therefore uses the two paths in §2; the full build runs in CI (§6). On the current Termux/aarch64 host the Termux-prefix aapt2
+2.20 **is** available and unit tests can run with the override (see §2.8); APK assembly
+still cannot run because the NDK prebuilts are x86_64-only.
 
 ## 2. Local v2 verification (executed)
 
@@ -125,13 +127,13 @@ Re-verified on the same aarch64 host: 85 pure-JVM tests,
 `:app:compileDebugKotlin` BUILD SUCCESSFUL, `:app:testDebugUnitTest` 89 tests / 0 failures.
 Emulator/device interaction with the new controls still needs a CI APK and the §5 checklist.
 
-### 2.5 Bundled plugin set and expanded Coding Keys
+### 2.5 Bundled plugin set and expanded key sample
 
 The two theme samples (Paper Light, Solarized Dark) were replaced by a single dark theme
 sample, **Midnight Dark** (`com.xeriomy.zen.midnightdark`), with a configurable cursor
-accent. **Coding Keys** was expanded to 1.1.0 with navigation, F1–F12, KEYBOARD, and macro
-rows alongside the original modifiers and PWD key, so the bundled sample exercises more of
-the extra-keys grammar. Both bundled artifacts were re-parsed and resolved by
+accent. The key sample (now named **Dev Terminal**, id still `com.xeriomy.zen.codingkeys`)
+was expanded to 1.1.0 with navigation, F1–F12, KEYBOARD, and macro rows, and later slimmed
+to two rows in 1.2.0. Both bundled artifacts were re-parsed and resolved by
 `BundledPluginsTest`; the emulator smoke now looks for Midnight Dark instead of the removed
 themes. Device interaction with the new key rows remains on the §5 checklist.
 
@@ -164,9 +166,52 @@ change notifications while visible and re-applies styling on every generation ch
 `PluginRuntimeTest` covers the runtime side and `TerminalColorSchemeTest` covers palette
 reset with empty properties.
 
+### 2.8 Dev Terminal rename, compact default rows, macro fixes and editor controls
+
+From the next device screenshots: the bundled key plugin's display name was **Coding Keys**
+even though it carried much more than keys, so it is now **Dev Terminal** (id unchanged:
+`com.xeriomy.zen.codingkeys`, version 1.2.0). Its default extra keys are the two rows shown
+in the screenshot: `ESC CTRL ALT SHIFT BACKSLASH UP KEYBOARD` and
+`TAB FN HOME END LEFT DOWN RIGHT`; the F1–F12 and macro rows remain supported by the
+editor but are no longer bundled defaults. The terminal-settings contribution is unchanged.
+
+Macros had two real defects. `TerminalExtraKeys` split a macro on spaces and wrote each
+text token without a separator, so `echo hello world` was typed as `echohelloworld`;
+`MacroKeySequence` now preserves literal spaces between text tokens while keeping the
+key-name grammar (`CTRL f d` stays a key sequence with separator-only spaces). A new
+macro-only `sendOnPress` boolean in `plugin.json` appends an Enter action when true;
+without it the macro only types. Legacy macros ending in the two literal characters `\n`
+are migrated to that flag at parse time. Macros authored in the editor default to
+send-on-press, while documents without the field keep type-only behavior. The key chooser
+dialog now has a **More** button revealing KEYBOARD, F1–F12, BACKSLASH and the rest of the
+named keys, then **Less** to collapse back to the compact 18-chip set.
+
+Verification executed on the Termux/aarch64 host:
+
+```bash
+./gradlew --no-daemon -PcompileSdkVersion=36 \
+  -Pandroid.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2 \
+  :app:compileDebugKotlin :app:testDebugUnitTest :terminal-emulator:testDebugUnitTest \
+  --console=plain
+# BUILD SUCCESSFUL
+python3 scripts/check-unit-tests.py app/build/test-results/testDebugUnitTest --min-tests 100
+python3 scripts/check-unit-tests.py terminal-emulator/build/test-results/testDebugUnitTest
+```
+
+Result: `:app:testDebugUnitTest` **102 tests, 0 skipped, 0 failures** (was 90), including
+`MacroSendOnPressTest` (5 data-path tests), `MacroKeySequenceTest` (6 pure dispatch tests),
+`ExtraKeyButtonTest` (1 host JSON flag test) and an exact two-row `BundledPluginsTest`.
+`:terminal-emulator:testDebugUnitTest`
+**146 tests, 0 skipped, 0 failures**. The standalone pure-JVM core compile was not re-run
+because the temporary jar directory (`.../tmp/opencode/pv`) is no longer present on this
+host; the Gradle app suite compiles and runs all of those core classes plus the new tests.
+Emulator smoke (including the renamed card/install flow) is CI-only here.
+
 ## 3. What local verification does not cover
 
-- Java sources (host hooks, termux-shared overlay) — compiled in CI.
+- APK assembly, resource linking, manifest merge, dexing, lint and NDK builds — CI.
+  Java sources are compiled locally by the Gradle command above; they are not executed
+  on a device here.
 - Resource linking, manifest merge, dexing, APK assembly — CI.
 - Robolectric app tests and the emulator suite — CI (they need resource processing).
 - Runtime UI behavior, styling application, accessibility — CI emulator smoke + device
@@ -177,7 +222,7 @@ reset with empty properties.
 With SDK platform 36 + build-tools 36.0.0 + NDK 29.0.14206865 installed, no overrides:
 
 ```bash
-./gradlew :app:testDebugUnitTest          # full app suite incl. 85 plugin tests
+./gradlew :app:testDebugUnitTest          # full app suite (102 tests in this revision)
 ./gradlew :terminal-emulator:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ./gradlew :app:lintDebug
@@ -196,9 +241,9 @@ safety, invalid-state recovery or accessibility.
    on resume. Change its **Cursor color** setting; cursor color updates. Disable; built-in
    colors return.
 4. Create `~/.termux/colors.properties`; the plugin theme is inert/overridden; user file wins.
-5. Install Coding Keys; extra-keys bar changes (no explicit `extra-keys`): check the
-   navigation (HOME/PGUP), F1–F12, KEYBOARD and macro/PWD rows. Toggle **ALL-CAPS key
-   labels**; terminal cursor becomes a blinking bar; scrollback grows. Set
+5. Install Dev Terminal; extra-keys bar changes (no explicit `extra-keys`): check the two
+   rows (ESC/CTRL/ALT/SHIFT/BACKSLASH/UP/KEYBOARD and TAB/FN/HOME/END/LEFT/DOWN/RIGHT).
+   Toggle **ALL-CAPS key labels**; terminal cursor becomes a blinking bar; scrollback grows. Set
    `terminal-cursor-style` in `termux.properties`; the user value wins.
 6. Add an explicit `extra-keys`; plugin keys become overridden.
 7. Create a plugin in the editor (theme + a color setting), save, enable, verify. Open Edit on
@@ -224,15 +269,15 @@ Workflow: `.github/workflows/plugin-verification.yml` (push to `master`/`plugins
 PRs to `master`, `workflow_dispatch` once on the default branch).
 
 `build-and-test` (ubuntu-24.04, Temurin 17, SDK 36/build-tools 36/NDK r29): plugin tests →
-full app suite → gate `scripts/check-unit-tests.py --min-tests 90` (86 plugin + 4 app
-tests; the historical `FileReceiverActivityTest` Robolectric-teardown quarantine is still
+full app suite → gate `scripts/check-unit-tests.py --min-tests 100` (102 tests in this
+revision; the historical `FileReceiverActivityTest` Robolectric-teardown quarantine is still
 encoded and only matches its exact message) → emulator unit tests → `assembleDebug` →
 APK checksums → `lintDebug`. Artifacts: `termux-debug-apk`, `plugin-verification-reports`.
 
 `emulator-smoke` (API 34 x86_64, KVM enabled via `sudo chmod 0666 /dev/kvm`): fresh
 install → first launch/bootstrap → terminal command with zero plugins → Settings →
 Plugins → hub empty state → Get plugins (bundled + not-configured catalog) → install
-Coding Keys via the confirmation dialog → registry check → detail screen shows the
+Dev Terminal via the confirmation dialog → registry check → detail screen shows the
 generated **ALL-CAPS key labels** setting and contribution previews → force-stop/relaunch
 persistence. Evidence artifact: screenshots, UI dumps, registry, logcat.
 

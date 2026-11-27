@@ -33,12 +33,17 @@ data class SettingSpec(
     val defaultValue: String
 )
 
-/** One button in an extra-keys row. Exactly one of [key] or [macro] is set. */
+/**
+ * One button in an extra-keys row. Exactly one of [key] or [macro] is set.
+ * [sendOnPress] applies to macros only: when true the host sends Enter after the tokens,
+ * so a command runs immediately; when false the macro only types its text.
+ */
 data class KeyCell(
     val key: String?,
     val macro: String?,
     val display: String?,
-    val popup: KeyCell?
+    val popup: KeyCell?,
+    val sendOnPress: Boolean = false
 )
 
 /** A typed, declarative contribution to a host extension point. */

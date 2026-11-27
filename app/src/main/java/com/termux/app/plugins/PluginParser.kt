@@ -215,10 +215,22 @@ object PluginParser {
     }
 
     private fun parseCell(obj: JSONObject, what: String, allowPopup: Boolean, settingIds: Set<String>): KeyCell {
-        val allowed = if (allowPopup) setOf("key", "macro", "display", "popup") else setOf("key", "macro", "display")
+        val commonFields = setOf("key", "macro", "display", "sendOnPress")
+        val allowed = if (allowPopup) commonFields + "popup" else commonFields
         PluginJson.rejectUnknownKeys(obj, allowed, what)
         val key = PluginJson.optionalString(obj, "key", what, ZenApi.KEY_NAME_MAX_LENGTH)
-        val macro = PluginJson.optionalString(obj, "macro", what, ZenApi.MACRO_MAX_LENGTH)
+        var macro = PluginJson.optionalString(obj, "macro", what, ZenApi.MACRO_MAX_LENGTH)
+        var sendOnPress = PluginJson.optionalBool(obj, "sendOnPress", what) ?: false
+        if (sendOnPress && macro == null)
+            throw PluginException("$what sendOnPress requires a macro")
+        // Migration: a literal "\n" suffix was the old way to say "run this command".
+        // Strip it and set the flag so the host sends a real Enter instead of typing
+        // the two characters backslash and n.
+        if (macro != null && macro.endsWith(ZenApi.LEGACY_MACRO_SEND_SUFFIX) &&
+            macro.length > ZenApi.LEGACY_MACRO_SEND_SUFFIX.length) {
+            macro = macro.removeSuffix(ZenApi.LEGACY_MACRO_SEND_SUFFIX)
+            sendOnPress = true
+        }
         if ((key == null) == (macro == null))
             throw PluginException("$what must declare exactly one of \"key\" or \"macro\"")
         val display = PluginJson.optionalString(obj, "display", what, ZenApi.DISPLAY_MAX_LENGTH)
@@ -229,7 +241,7 @@ object PluginParser {
         val popup = if (allowPopup) {
             PluginJson.optionalObject(obj, "popup", what)?.let { parseCell(it, "$what.popup", false, settingIds) }
         } else null
-        return KeyCell(key, macro, display, popup)
+        return KeyCell(key, macro, display, popup, sendOnPress)
     }
 
     private fun parsePreset(obj: JSONObject, index: Int, settingIds: Set<String>): Contribution.SessionPreset {
@@ -397,6 +409,7 @@ object PluginParser {
         cell.macro?.let { obj.put("macro", it) }
         cell.display?.let { obj.put("display", it) }
         cell.popup?.let { obj.put("popup", cellToJson(it)) }
+        if (cell.sendOnPress && cell.macro != null) obj.put("sendOnPress", true)
         return obj
     }
 }

@@ -117,7 +117,7 @@ object PluginSettings {
             throw PluginException("extra key macro resolved to an invalid value")
         if (display != null && (display.length > ZenApi.DISPLAY_MAX_LENGTH || ZenApi.hasControlChars(display)))
             throw PluginException("extra key display resolved to an invalid value")
-        return KeyCell(key, macro, display, cell.popup?.let { resolveCell(it, values) })
+        return KeyCell(key, macro, display, cell.popup?.let { resolveCell(it, values) }, cell.sendOnPress)
     }
 
     /** Converts resolved extra-keys rows to the JSON string the host ExtraKeysInfo expects. */
@@ -137,6 +137,7 @@ object PluginSettings {
         cell.macro?.let { obj.put("macro", it) }
         cell.display?.let { obj.put("display", it) }
         cell.popup?.let { obj.put("popup", cellToJson(it)) }
+        if (cell.sendOnPress && cell.macro != null) obj.put("sendOnPress", true)
         return obj
     }
 }

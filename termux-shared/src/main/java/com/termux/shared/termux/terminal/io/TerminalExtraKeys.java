@@ -9,14 +9,25 @@ import androidx.annotation.NonNull;
 import com.google.android.material.button.MaterialButton;
 import com.termux.shared.termux.extrakeys.ExtraKeyButton;
 import com.termux.shared.termux.extrakeys.ExtraKeysView;
-import com.termux.shared.termux.extrakeys.SpecialButton;
+import com.termux.shared.termux.extrakeys.MacroKeySequence;
 import com.termux.terminal.TerminalSession;
 import com.termux.view.TerminalView;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static com.termux.shared.termux.extrakeys.ExtraKeysConstants.PRIMARY_KEY_CODES_FOR_STRINGS;
 
 
 public class TerminalExtraKeys implements ExtraKeysView.IExtraKeysView {
+
+    /** Named keys that dispatch as key events, not literal text, inside a macro. */
+    private static final Set<String> MACRO_KEY_NAMES = new HashSet<>(PRIMARY_KEY_CODES_FOR_STRINGS.keySet());
+    static {
+        MACRO_KEY_NAMES.addAll(Arrays.asList("KEYBOARD", "DRAWER", "COPY", "PASTE", "SCROLL"));
+    }
 
     private final TerminalView mTerminalView;
 
@@ -27,24 +38,11 @@ public class TerminalExtraKeys implements ExtraKeysView.IExtraKeysView {
     @Override
     public void onExtraKeyButtonClick(View view, ExtraKeyButton buttonInfo, MaterialButton button) {
         if (buttonInfo.isMacro()) {
-            String[] keys = buttonInfo.getKey().split(" ");
-            boolean ctrlDown = false;
-            boolean altDown = false;
-            boolean shiftDown = false;
-            boolean fnDown = false;
-            for (String key : keys) {
-                if (SpecialButton.CTRL.getKey().equals(key)) {
-                    ctrlDown = true;
-                } else if (SpecialButton.ALT.getKey().equals(key)) {
-                    altDown = true;
-                } else if (SpecialButton.SHIFT.getKey().equals(key)) {
-                    shiftDown = true;
-                } else if (SpecialButton.FN.getKey().equals(key)) {
-                    fnDown = true;
-                } else {
-                    onTerminalExtraKeyButtonClick(view, key, ctrlDown, altDown, shiftDown, fnDown);
-                    ctrlDown = false; altDown = false; shiftDown = false; fnDown = false;
-                }
+            List<MacroKeySequence.KeyAction> actions = MacroKeySequence.parse(
+                buttonInfo.getKey(), buttonInfo.isSendOnPress(), MACRO_KEY_NAMES);
+            for (MacroKeySequence.KeyAction action : actions) {
+                onTerminalExtraKeyButtonClick(view, action.key,
+                    action.ctrlDown, action.altDown, action.shiftDown, action.fnDown);
             }
         } else {
             onTerminalExtraKeyButtonClick(view, buttonInfo.getKey(), false, false, false, false);

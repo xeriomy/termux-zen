@@ -96,6 +96,11 @@ object PluginJson {
         return value as? Boolean ?: throw PluginException("$what field \"$key\" must be a boolean")
     }
 
+    fun optionalBool(obj: JSONObject, key: String, what: String): Boolean? {
+        val value = obj.opt(key) ?: return null
+        return value as? Boolean ?: throw PluginException("$what field \"$key\" must be a boolean")
+    }
+
     fun stringAt(array: JSONArray, index: Int, what: String, maxLength: Int): String {
         val value = array.opt(index) ?: throw PluginException("$what[$index] is missing")
         if (value !is String) throw PluginException("$what[$index] must be a string")

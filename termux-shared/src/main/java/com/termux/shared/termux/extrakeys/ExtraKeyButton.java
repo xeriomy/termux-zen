@@ -25,6 +25,9 @@ public class ExtraKeyButton {
     /** The key name for the nested dict to define popup extra key info if using a dict to define the extra key. {popup: {key: name, ...}, ...} */
     public static final String KEY_POPUP = "popup";
 
+    /** Macro-only flag: send Enter after the tokens instead of leaving the cursor on the line. */
+    public static final String KEY_SEND_ON_PRESS = "sendOnPress";
+
 
     /**
      * The key that will be sent to the terminal, either a control character, like defined in
@@ -47,6 +50,9 @@ public class ExtraKeyButton {
      */
     @Nullable
     private final ExtraKeyButton popup;
+
+    /** Whether a macro should also press Enter after its tokens. Ignored for plain keys. */
+    private final boolean sendOnPress;
 
 
     /**
@@ -110,6 +116,7 @@ public class ExtraKeyButton {
         }
 
         this.popup = popup;
+        this.sendOnPress = Boolean.TRUE.equals(config.opt(KEY_SEND_ON_PRESS));
     }
 
     public String getStringFromJson(@NonNull JSONObject config, @NonNull String key) {
@@ -139,6 +146,11 @@ public class ExtraKeyButton {
     @Nullable
     public ExtraKeyButton getPopup() {
         return popup;
+    }
+
+    /** Check whether this macro sends Enter after its tokens. */
+    public boolean isSendOnPress() {
+        return sendOnPress;
     }
 
     /**

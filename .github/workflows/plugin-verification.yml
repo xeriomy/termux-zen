@@ -58,7 +58,7 @@ jobs:
         run: |
           python3 scripts/check-unit-tests.py \
             app/build/test-results/testDebugUnitTest \
-            --min-tests 90 \
+            --min-tests 100 \
             --gradle-exit "${{ steps.app-unit-tests.outputs.exit_code }}" \
             | tee -a "$GITHUB_STEP_SUMMARY"
 

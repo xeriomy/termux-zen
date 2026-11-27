@@ -129,6 +129,14 @@ unregistered and can never load.
 | `session_preset` | terminal context menu → `addNewSession(false, name, dir)` | explicit tap required; missing dir → no entry |
 | `terminal_settings` | `TermuxActivity.reloadProperties` → `applyPropertyOverrides` | any key the user set in `termux.properties` wins |
 
+Extra-key macros stay ordinary virtual keystrokes: `PluginSettings.extraKeysToJsonString`
+passes each cell to `ExtraKeyButton`, and `MacroKeySequence` turns its tokens into ordered
+key actions for `TerminalExtraKeys.onTerminalExtraKeyButtonClick`. A macro whose first token
+is a modifier or named key is a key sequence (spaces are separators); otherwise spaces
+between text tokens are typed literally. The author's `sendOnPress` flag appends an ENTER
+action so a command runs on tap; without it the macro only types and leaves the cursor on
+the line.
+
 `terminal_settings` whitelist (values validated at parse and after resolution):
 `bell-character` (ignore/vibrate/beep), `terminal-cursor-style` (block/underline/bar),
 `terminal-cursor-blink-rate` (0 or 100–2000), `terminal-margin-horizontal` (0–100),
@@ -165,7 +173,8 @@ closed for that generation.
   and raw-JSON mode is unavailable. Contribution add/delete buttons are hidden too, because
   contributions belong to the plugin author's JSON. Only the per-type contribution value
   editors remain usable (18-color theme editor with HSV picker, extra-keys row/cell builder
-  with click-to-edit keys and a separate delete button, preset fields, terminal-settings
+  with click-to-edit keys, a separate delete button and a **More** chip toggle that reveals
+  KEYBOARD, F1–F12 and other named keys, a macro send-on-press switch, preset fields, terminal-settings
   key/value editor with editable values and `${settings.id}` tokens).
   Setting **values** are changed on the detail screen's generated form. Saving round-trips
   through the strict parser, so the editor cannot produce a document the host would reject.

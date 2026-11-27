@@ -64,6 +64,13 @@ object ZenApi {
     const val MACRO_MAX_LENGTH = 512
     const val DISPLAY_MAX_LENGTH = 32
 
+    /**
+     * Older plugin macros used a literal backslash-n at the end to mean "press Enter".
+     * Control characters are rejected in documents, so this two-character suffix is the
+     * only legacy form; parsing migrates it to the explicit `sendOnPress` flag.
+     */
+    const val LEGACY_MACRO_SEND_SUFFIX = "\\n"
+
     // Session preset bounds.
     const val PRESET_NAME_MAX_LENGTH = 48
     const val PRESET_DIR_MAX_LENGTH = 256

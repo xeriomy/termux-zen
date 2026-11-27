@@ -115,7 +115,7 @@ plugin contribute nothing for that generation (fail-closed).
   "keys": [
     [ {"key": "ESC"}, {"key": "TAB"}, {"key": "CTRL"}, {"key": "ALT"} ],
     [ {"key": "LEFT"}, {"key": "DOWN"}, {"key": "UP"}, {"key": "RIGHT"},
-      {"macro": "echo $PWD\n", "display": "PWD"} ]
+      {"macro": "echo $PWD", "display": "PWD", "sendOnPress": true} ]
   ]
 }
 ```
@@ -123,6 +123,17 @@ plugin contribute nothing for that generation (fail-closed).
 - `keys`: 1–6 rows, 1–12 cells per row, ≤64 cells total. A cell is an object with exactly
   one of `key` (≤32 chars) or `macro` (≤512 chars), optional `display` (≤32 chars), and
   optional `popup` (one nested cell; no popup inside a popup). No control characters.
+- `sendOnPress` (boolean, macro cells only; default `false`): when `true`, the host sends
+  Enter after the macro's tokens so a typed command runs immediately; when `false` the
+  macro only types text. Older documents ending a macro in the two literal characters
+  `\n` are migrated at parse time to `sendOnPress: true` with that suffix removed. Macros
+  newly authored in the in-app editor default to `true` and keep the author's flag when
+  edited later.
+- Macro grammar: tokens are space-separated. If the first token is a modifier (`CTRL`,
+  `ALT`, `SHIFT`, `FN`) or a named key (for example `LEFT`), it is a key sequence and the
+  spaces are separators only (`CTRL f d` sends Ctrl+f then `d`). Otherwise the macro is
+  typed as text and spaces between text tokens are written literally (`echo hello world`
+  types exactly that). Named keys embedded in a text macro still dispatch as key events.
 - `style`: `default`, `arrows-only`, `arrows-all`, `all`, `none` (or a settings token).
 - Applied only when the user has not set `extra-keys`; the plugin style only when the user
   has not set `extra-keys-style`. If the host `ExtraKeysInfo` parse fails at render time,

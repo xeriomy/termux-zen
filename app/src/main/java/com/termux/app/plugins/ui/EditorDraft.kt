@@ -24,24 +24,29 @@ class EditableCell(
     key: String? = null,
     macro: String? = null,
     display: String? = null,
-    popup: EditableCell? = null
+    popup: EditableCell? = null,
+    sendOnPress: Boolean = macro == null
 ) {
     var useMacro by mutableStateOf(macro != null)
     var key by mutableStateOf(key ?: "")
     var macro by mutableStateOf(macro ?: "")
     var display by mutableStateOf(display ?: "")
     var popup by mutableStateOf(popup)
+    // A macro authored in the editor runs its command by default; macros loaded from an
+    // existing document keep the author's flag (absent field means type-only).
+    var sendOnPress by mutableStateOf(sendOnPress)
 
     fun toKeyCell(): KeyCell = KeyCell(
         key = if (!useMacro) key.trim().ifEmpty { null } else null,
         macro = if (useMacro) macro.ifEmpty { null } else null,
         display = display.trim().ifEmpty { null },
-        popup = popup?.toKeyCell()
+        popup = popup?.toKeyCell(),
+        sendOnPress = sendOnPress
     )
 
     companion object {
         fun from(cell: KeyCell): EditableCell =
-            EditableCell(cell.key, cell.macro, cell.display, cell.popup?.let { from(it) })
+            EditableCell(cell.key, cell.macro, cell.display, cell.popup?.let { from(it) }, cell.sendOnPress)
     }
 }
 

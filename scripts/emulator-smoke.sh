@@ -275,12 +275,12 @@ for _ in $(seq 1 4); do
     adb shell input swipe 540 700 540 1500 300 || true
     sleep 1
 done
-assert_bundled_card "Coding Keys"
+assert_bundled_card "Dev Terminal"
 assert_bundled_card "Midnight Dark"
 screenshot bundled-plugins
 
-say "install Coding Keys"
-# Return to the top; the first Install button belongs to Coding Keys because the
+say "install Dev Terminal"
+# Return to the top; the first Install button belongs to Dev Terminal because the
 # bundled assets are sorted by file name (coding-keys.zip first).
 for _ in $(seq 1 6); do
     adb shell input swipe 540 700 540 1500 300 || true
@@ -294,7 +294,7 @@ for _ in $(seq 1 8); do
     adb shell input swipe 540 1500 540 700 300 || true
     sleep 1
 done
-[ -n "$install_coords" ] || die "could not find the Coding Keys install button"
+[ -n "$install_coords" ] || die "could not find the Dev Terminal install button"
 say "tap 'Install' at $install_coords"
 read -r ix iy <<< "$install_coords"
 adb shell input tap "$ix" "$iy"
@@ -318,7 +318,7 @@ say "bundled plugin installed"
 say "plugin detail renders generated settings"
 ui_tap_text "Back" 2
 sleep 1
-ui_tap_text "Coding Keys" 3
+ui_tap_text "Dev Terminal" 3
 sleep 1
 ui_dump || die "could not dump the plugin detail screen"
 assert_ui_text "What it changes"
@@ -336,7 +336,7 @@ sleep 2
 ui_tap_text "Plugins" 3
 sleep 2
 ui_dump || die "could not dump the plugin hub after restart"
-ui_has "Coding Keys" || die "installed plugin was not persisted after restart"
+ui_has "Dev Terminal" || die "installed plugin was not persisted after restart"
 screenshot after-restart
 say "plugin registration persisted across restart"
 

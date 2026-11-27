@@ -44,21 +44,34 @@ class BundledPluginsTest {
     }
 
     @Test
-    fun codingKeysPackCombinesContributions() {
+    fun devTerminalPackCombinesContributions() {
         val zip = File(assetsDir(), "coding-keys.zip")
         val manifest = PluginParser.parse(PluginArchive.readPluginJson(zip.readBytes()))
+        // Identity stays stable for installed-plugin updates; only the display name changed.
+        assertEquals("com.xeriomy.zen.codingkeys", manifest.id)
+        assertEquals("Dev Terminal", manifest.name)
+        assertEquals("1.2.0", manifest.version.raw)
+
         val keys = manifest.extraKeys()!!
         assertNotNull(keys)
-        // The bundled sample bar demonstrates navigation, function, keyboard-toggle
-        // and macro cells, not just the four original modifier keys.
-        assertTrue(keys.rows.size >= 4)
-        assertTrue(keys.rows.any { row -> row.any { it.key == "KEYBOARD" } })
-        assertTrue(keys.rows.any { row -> row.any { it.key == "F12" } })
-        assertTrue(keys.rows.any { row -> row.any { it.macro != null } })
+        assertEquals("default", keys.style)
+        // Two compact rows: no function row and no macros by default.
+        assertEquals(
+            listOf(
+                listOf("ESC", "CTRL", "ALT", "SHIFT", "BACKSLASH", "UP", "KEYBOARD"),
+                listOf("TAB", "FN", "HOME", "END", "LEFT", "DOWN", "RIGHT")
+            ),
+            keys.rows.map { row -> row.map { it.key } }
+        )
+        assertTrue(keys.rows.flatten().none { it.macro != null })
+
         assertNotNull(manifest.terminalSettings())
         val resolved = PluginSettings.resolveContribution(
             manifest.terminalSettings()!!, PluginSettings.effectiveValues(manifest, mapOf("all_caps" to "true"))
         ) as Contribution.TerminalSettings
+        assertEquals("bar", resolved.values["terminal-cursor-style"])
+        assertEquals("500", resolved.values["terminal-cursor-blink-rate"])
+        assertEquals("10000", resolved.values["terminal-transcript-rows"])
         assertEquals("true", resolved.values["extra-keys-text-all-caps"])
     }
 }

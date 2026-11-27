@@ -35,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,8 +60,11 @@ private val THEME_KEY_ORDER = listOf("foreground", "background", "cursor") + (0.
 private val COMMON_KEYS = listOf(
     "ESC", "TAB", "CTRL", "ALT", "FN", "SHIFT", "ENTER", "BACKSPACE", "SPACE",
     "LEFT", "RIGHT", "UP", "DOWN", "HOME", "END", "PGUP", "PGDN", "INS", "DEL",
-    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "KEYBOARD"
+    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+    "KEYBOARD", "BACKSLASH"
 )
+/** Chips visible before the user taps "More" — keeps the dialog usable on a phone. */
+private const val COMPACT_KEY_COUNT = 18
 
 @Composable
 fun EditorScreen(controller: HubController, draft: EditorDraft) {
@@ -338,6 +342,7 @@ private fun KeysEditor(keys: EditableContribution.Keys) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CellEditorDialog(cell: EditableCell, onRemove: () -> Unit, onDismiss: () -> Unit) {
+    var showAllKeys by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(ZenStrings.EDITOR_KEY) },
@@ -354,16 +359,28 @@ private fun CellEditorDialog(cell: EditableCell, onRemove: () -> Unit, onDismiss
                         label = { Text(ZenStrings.EDITOR_KEY) }, singleLine = true,
                         modifier = Modifier.fillMaxWidth())
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        for (suggestion in COMMON_KEYS.take(18)) {
+                        val suggestions = if (showAllKeys) COMMON_KEYS else COMMON_KEYS.take(COMPACT_KEY_COUNT)
+                        for (suggestion in suggestions) {
                             FilterChip(selected = cell.key == suggestion, onClick = { cell.key = suggestion },
                                 label = { Text(suggestion, style = MaterialTheme.typography.labelSmall) })
                         }
                     }
+                    TextButton(onClick = { showAllKeys = !showAllKeys }) {
+                        Text(if (showAllKeys) ZenStrings.EDITOR_FEWER_KEYS else ZenStrings.EDITOR_MORE_KEYS,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
                 } else {
                     OutlinedTextField(cell.macro, { cell.macro = it },
                         label = { Text(ZenStrings.EDITOR_MACRO) },
-                        supportingText = { Text("e.g. echo hello\\n") },
+                        supportingText = { Text("e.g. echo hello world (spaces are typed as written)") },
                         modifier = Modifier.fillMaxWidth())
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(ZenStrings.EDITOR_MACRO_SEND_ON_PRESS,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f))
+                        Switch(checked = cell.sendOnPress, onCheckedChange = { cell.sendOnPress = it })
+                    }
                 }
                 OutlinedTextField(cell.display, { cell.display = it },
                     label = { Text(ZenStrings.EDITOR_DISPLAY) }, singleLine = true,
